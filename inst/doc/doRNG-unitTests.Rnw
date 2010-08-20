@@ -1,0 +1,59 @@
+
+\documentclass[10pt]{article}
+%\VignetteIndexEntry{doRNG-unitTests}
+\usepackage{vmargin}
+\setmargrb{0.75in}{0.75in}{0.75in}{0.75in}
+
+\RequirePackage{ae,mathpple}    % ae as a default font pkg works with Sweave
+\RequirePackage[T1]{fontenc}
+
+<<echo=FALSE,print=FALSE>>=
+pkg <- 'doRNG'
+require( pkg, character.only=TRUE )
+prettyVersion <- packageDescription(pkg)$Version
+prettyDate <- format(Sys.Date(), '%B %e, %Y')
+authors <- packageDescription(pkg)$Author
+@
+
+\usepackage[colorlinks]{hyperref}
+\author{\Sexpr{authors}}
+\title{\texttt{\Sexpr{pkg}}: Unit testing results}
+\date{\texttt{\Sexpr{pkg}} version \Sexpr{prettyVersion} as of \Sexpr{prettyDate}}
+\begin{document}
+\maketitle
+
+\begin{verbatim}
+RUNIT TEST PROTOCOL -- Thu Mar 29 16:06:15 2012 
+*********************************************** 
+Number of test functions: 4 
+Number of errors: 0 
+Number of failures: 0 
+
+ 
+1 Test Suite : 
+doRNG unit testing - 4 test functions, 0 errors, 0 failures
+
+
+
+Details 
+*************************** 
+Test Suite: doRNG unit testing 
+Test function regexp: ^test.+ 
+Test file regexp: ^runit.+.[rR]$ 
+Involved directory: 
+/tmp/tmp.5dGZ3hmkDV/doRNG/unitTests 
+--------------------------- 
+Test file: /tmp/tmp.5dGZ3hmkDV/doRNG/unitTests/runit.dorng.R 
+test.dorng: (22 checks) ... OK (6.09 seconds)
+test.doRNGseed: (41 checks) ... OK (0 seconds)
+test.registerDoRNG: (11 checks) ... OK (3.89 seconds)
+test.RNGseq: (48 checks) ... OK (0.01 seconds)
+\end{verbatim}
+
+\section*{Session Information}
+<<sessionInfo, echo=FALSE, results=tex>>=
+toLatex(sessionInfo())
+@
+
+\end{document}
+

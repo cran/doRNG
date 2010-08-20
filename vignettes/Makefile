@@ -13,6 +13,7 @@
 ## on Ubuntu so for now Dirk will insist on pdflatex and this helps.
 AUTHOR_USER=renaud
 R_PACKAGE=doRNG
+MAKEPDF=1
 
 ##---------------------------------------------------------------------
 ## Everything below this should be generic and work for any package provided that
@@ -34,6 +35,7 @@ endif
 
 ifneq (,$(findstring $(AUTHOR_USER),$(whoami)))
 LOCAL_MODE=1
+MAKEPDF=1
 endif
 
 ifeq (${R_HOME},)
@@ -85,10 +87,10 @@ else
 endif
 
 clean:
-	rm -f *.tex *.bbl *.blg *.aux *.out *.log *.err *-blx.bib
+	rm -fr *.tex *.bbl *.blg *.aux *.out *.log *.err *-blx.bib unitTests-results
 
 clean-all: clean
-	rm -fr *.pdf ../inst/doc/*.pdf *.Rnw unitTests-results
+	rm -fr *.pdf ../inst/doc/*.pdf *.Rnw
 
 setvars:
 ifeq (${R_HOME},)
@@ -111,18 +113,20 @@ do_clean:
 	# Using R_LIBS: $(R_LIBS)
 	$(RSCRIPT) --vanilla -e "require(knitr); knit('${SRC_DIR}/$*.Rnw', '$*.tex');"
 	# Generating pdf $@ from $*.tex
+ifdef MAKEPDF
 ifdef LOCAL_MODE
+	# Using pdflatex
 	@pdflatex $(VIGNETTE_BASENAME) >> pdflatex.log
-else
-	$(RSCRIPT) -e "tools::texi2dvi( '$(VIGNETTE_BASENAME).tex', pdf = TRUE, clean = FALSE )"
-endif
 	-bibtex $(VIGNETTE_BASENAME)
-ifdef LOCAL_MODE
 	@pdflatex $(VIGNETTE_BASENAME) >> pdflatex.log
 	@pdflatex $(VIGNETTE_BASENAME) >> pdflatex.log
 else
+	# Using tools::texi2dvi
+	$(RSCRIPT) -e "tools::texi2dvi( '$(VIGNETTE_BASENAME).tex', pdf = TRUE, clean = FALSE )"
+	-bibtex $(VIGNETTE_BASENAME)
 	$(RSCRIPT) -e "tools::texi2dvi( '$(VIGNETTE_BASENAME).tex', pdf = TRUE, clean = TRUE )"
 endif
+endif	
 	# Remove temporary LaTeX files (but keep the .tex)
 	rm -fr $(VIGNETTE_BASENAME).toc $(VIGNETTE_BASENAME).log \
 	$(VIGNETTE_BASENAME).bbl $(VIGNETTE_BASENAME).blg \

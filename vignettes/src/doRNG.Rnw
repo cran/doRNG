@@ -66,7 +66,8 @@ options(width=90)
 <<foreach>>=
 # load and register parallel backend for multicore computations
 library(doParallel)
-registerDoParallel(2)
+cl <- makeCluster(2)
+registerDoParallel(cl)
 
 # perform 5 tasks in parallel
 x <- foreach(i=1:5) %dopar% { 
@@ -77,59 +78,170 @@ unlist(x)
 \end{figure}
 
 For each parallel environment a \emph{backend} is implemented as a specialised \code{\%dopar\%} operator, which performs the setup and pre/post-processing specifically required by the environment (e.g. export of variable to each worker).
-The \code{foreach} function and the \code{\%dopar\%} handle the generic parameter dispatch and reducing step -- when the results are returned to the master worker.
+The \code{foreach} function and the \code{\%dopar\%} operator handle the generic
+parameter dispatch when the task are split between worker processes, as well
+as the reduce step -- when the results are returned to the master worker.
   
-When stochastic computations are involved, special random number generators must be used to ensure that the separate computations are indeed statistically independent -- unless otherwise wanted -- and that the loop is reproducible.
-A random number generator commonly used to achieve this is the combined
-multiple-recursive generator from L'Ecuyer \cite{Lecuyer1999}.
-This generator can generate independent random streams, from a 6-length numeric seed.
-
-The \citeCRANpkg{doRNG} provides a convenient way to implement reproducible parallel \code{foreach} loops, independently of the parallel backend used to perform the computation.
-We illustrate its use, showing how non-reproducible loops can be made
-reproducible, even when rerun with the tasks not scheduled in the same way in two separate set of runs, e.g.
-when the workers do not get to compute the same number of tasks or the number of workers is different.
-
-{\small
-<<doRNG>>=
-
-# load the doRNG package
-library(doRNG)
-
-# with standard %dopar%: loops are not reproducible
+When stochastic computations are involved, special random number generators must
+be used to ensure that the separate computations are indeed statistically independent -- unless otherwise wanted -- and that the loop is reproducible.
+Standard \code{\%dopar\%} loops are not reproducible:
+<<dopar, tidy=FALSE>>=
+# with standard %dopar%: foreach loops are not reproducible
 set.seed(123)
 res <- foreach(i=1:5) %dopar% { runif(3) }
 set.seed(123)
 res2 <- foreach(i=1:5) %dopar% { runif(3) }
 identical(res, res2)
+@
 
-# using %dorng%: reproducible
-res <- foreach(i=1:5, .options.RNG=123) %dorng% { runif(3) }
-res2 <- foreach(i=1:5, .options.RNG=123) %dorng% { runif(3) }
+A random number generator commonly used to achieve reproducibility is the
+combined multiple-recursive generator from L'Ecuyer \cite{Lecuyer1999}.
+This generator can generate independent random streams, from a 6-length numeric seed.
+The idea is then to generate a sequence of random stream of the same length
+as the number of iteration (i.e. tasks) and use a different stream when computing each
+one of them.
+
+The \citeCRANpkg{doRNG} provides convenient ways to implement reproducible
+parallel \code{foreach} loops, independently of the parallel backend used to perform the computation.
+We illustrate its use, showing how non-reproducible loops can be made
+reproducible, even when tasks are not scheduled in the same way in two separate
+set of runs, e.g.
+when the workers do not get to compute the same number of tasks or the number of workers is different.
+
+\section{The \texttt{\%dorng\%} operator}
+
+The \Rpkg{doRNG} defines a new operator, \code{\%dorng\%}, to be used with
+foreach loops, instead of the standard {\%dopar\%}.
+Lops that use this operator are \emph{de facto} reproducible.
+
+{\small
+<<dorng, tidy=FALSE>>=
+
+# load the doRNG package
+library(doRNG)
+
+# using %dorng%: loops _are_ reproducible
+set.seed(123)
+res <- foreach(i=1:5) %dorng% { runif(3) }
+set.seed(123)
+res2 <- foreach(i=1:5) %dorng% { runif(3) }
 identical(res, res2)
+@
+}
 
-# even when the tasks are not scheduled in the same way
-res <- foreach(i=1:5, .combine=rbind, .options.RNG=123) %dorng% {
+The actual random seed used for the first loop iteration is stored as attribute
+\code{'RNG'} in the result:
+{\small
+<<attr>>=
+attr(res, 'RNG')
+@
+}
+
+The following iterations are seeded recursively calling the
+\code{nextRNGStream} function from the \citeCRANpkg{parallel}, hence
+creating a sequence of seeds for statistically independent RNG streams.
+
+The initial seed can also be passed via an option to the \code{\%dorng\%}
+operator, and be a single numeric (as for \code{set.seed}), or a 6 or 7-length
+numeric which is used as the initial seed for L'Ecuyer's RNG or value
+for \code{.Random.seed}\footnote{Note that the RNG type is always required to
+be the \code{"L'Ecuyer-CMRG"}.} respectively:
+<<option>>=
+# use a single numeric as a seed
+res3 <- foreach(i=1:5, .options.RNG=123) %dorng% { runif(3) }
+identical(res3, res)
+
+# use complete .Random.seed
+res4 <- foreach(i=1:5, .options.RNG=attr(res, 'RNG')) %dorng% { runif(3) }
+identical(res4, res)
+
+# use a 6-length numeric
+s <- foreach(i=1:5, .options.RNG=1:6) %dorng% { runif(3) }
+attr(s, 'RNG')
+@
+
+An important feature of \code{\%dorng\%} loops is that their result is
+independent of the underlying parallel physical settings.
+Two separate runs seeded with the same value will always produce the same
+results.
+Whether they use the same number of worker processes, parallel backend or
+task scheduling does not influence the final result.
+This also applies to computations performed sequentially with the the
+\code{doSEQ} backend.
+The following code illustrates this using 2 or 3 workers.
+
+{\small
+<<schedule>>=
+res_2workers <- foreach(i=1:5, .combine=rbind, .options.RNG=123) %dorng% {
 	c(pid=Sys.getpid(), val=runif(1)) 
 }
 
-cl <- makeCluster(3)
-registerDoParallel(cl)
-res2 <- foreach(i=1:5, .combine=rbind, .options.RNG=123) %dorng% { 
-	c(pid=Sys.getpid(), val=runif(1))
-}
+# stop previous cluster (that uses 2 workers)
 stopCluster(cl)
 
+# create cluster with 3 workers
+cl <- makeCluster(3)
+registerDoParallel(cl)
+res_3workers <- foreach(i=1:5, .combine=rbind, .options.RNG=123) %dorng% { 
+	c(pid=Sys.getpid(), val=runif(1))
+}
+
 # task schedule is different
-pid <- rbind(res1=res[,1], res2=res2[,1])
+pid <- rbind(res1=res_2workers[,1], res2=res_3workers[,1])
 storage.mode(pid) <- 'integer'
 pid
 # results are identical
-identical(res[,2], res2[,2])
+identical(res_2workers[,2], res_3workers[,2])
 @
 %\caption{Examples of non-reproducible and reproducible loops using the
 % \Rpkg{doRNG}.}
 %\label{lst:doRNG}
-}
+
+\section{Seamless convertion of \texttt{\%dopar\%} into reproducibile loops}
+
+The \Rpkg{doRNG} also provides a way to convert \code{\%dopar\%} loops into
+reproducible loops without changing their actual definition.
+It is useful to quickly ensure the reproducibility of existing code or functions
+whose definition is not accessible (e.g. from other packages).
+This is achieved by registering the \code{doRNG} backend:
+
+<<registerDoRNG>>=
+registerDoRNG(123)
+res_dopar <- foreach(i=1:5) %dopar% { runif(3) }
+identical(res_dopar, res)
+attr(res_dopar, 'RNG')
+@
+
+\section{Reproducibility of multiple loops}
+
+Sequences of multiple loops are reproducible, whether using the
+\code{\%dorng\%} operator or the registered \code{doRNG} backend:
+
+<<multiple, tidy=FALSE>>=
+set.seed(456)
+s1 <- foreach(i=1:5) %dorng% { runif(3) }
+s2 <- foreach(i=1:5) %dorng% { runif(3) }
+# the two loops do not use the same streams: different results
+identical(s1, s2)
+
+# but the sequence of loops is reproducible as a whole
+set.seed(456)
+r1 <- foreach(i=1:5) %dorng% { runif(3) }
+r2 <- foreach(i=1:5) %dorng% { runif(3) }
+identical(r1, s1) && identical(r2, s2) 
+
+# one can equivalently register the doRNG backend and use %dopar%
+registerDoRNG(456)
+r1 <- foreach(i=1:5) %dopar% { runif(3) }
+r2 <- foreach(i=1:5) %dopar% { runif(3) }
+identical(r1, s1) && identical(r2, s2)
+@
+
+
+\section*{Cleanup}
+<<stopCluster>>=
+stopCluster(cl)
+@
 
 \section*{Session information}
 {\small
@@ -146,7 +258,7 @@ cat("\\bibliography{Rpackages,", file.path(system.file(package='doRNG'), "REFERE
 
 <<bibtex_entries, echo=FALSE, include=FALSE>>=
 library(bibtex)
-write.bib(c('foreach', 'doRNG'), file='../Rpackages.bib')
+write.bib(c('foreach', 'doRNG', 'parallel'), file='../Rpackages.bib')
 @
 
 \end{document}

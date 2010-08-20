@@ -1,4 +1,22 @@
 *************************************************************************
+*                       Changes in version 1.2.2                        *
+*************************************************************************
+
+BUG FIX
+    o separate %dorng% loops were using the same seed.
+
+NEW FEATURES
+    o add unit tests
+    o first seed is set as an attribute of the loop's result
+
+CHANGES
+    o function doRNGseed now returns the seed to use for the first iteration.
+    o RNGseq now change the current RNG state if called with no seed specific.  
+    
+DEFUNCT
+	o removed function CMRGseed
+
+*************************************************************************
 *                       Changes in version 1.2                          *
 *************************************************************************
 

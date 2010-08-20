@@ -48,125 +48,91 @@ RNGscope <- function(seed){
 	invisible(res)
 }
 
-#' \code{CMRGseed} generates a 6-length numeric seed used for seeding 
-#' multiple random streams for L'Ecuyer's RNG.
+#' Creating Initial Seed for Random Streams
 #' 
-#' @param seed a single or 6-length numeric. If missing a random seed is 
-#' generated using the current RNG, but will not change its current state.
-#' @param normal.kind character string or \code{NULL} (default) that indicates 
-#' the random normal generator to use. This argument is passed to 
-#' \code{\link{RNGkind}} or \code{\link{set.seed}} depending if argument 
-#' \code{seed} is missing or not.    
-#' 
-#' @return \code{CMRGseed} returns the generated seed (i.e. a 6-length numeric vector)
-#' 
-#' @export
-#' 
-#' @examples
-#' 
-#' # generate random seed for L'Ecuyer's RNG
-#' CMRGseed()
-#' 
-#' # generate random seed for L'Ecuyer's RNG using a seed for current RNG
-#' # => this should not change the current value of .Random.seed 
-#' rs <- .Random.seed
-#' CMRGseed(1)
-#' identical(rs, .Random.seed)
-#' 
-#' \dontshow{
-#' 
-#' # Unit tests
-#' rs <- .Random.seed
-#' stopifnot( length(CMRGseed()) == 6 )
-#' stopifnot( identical(rs, .Random.seed) )
-#' 
-#' rs <- .Random.seed
-#' stopifnot( length(CMRGseed(1)) == 6 )
-#' stopifnot( identical(rs, .Random.seed) )
-#' stopifnot( all(!is.na(CMRGseed(1))) )
-#' 
-#' }
-#' 
-#' 
-CMRGseed <- function(seed, normal.kind=NULL){
-	
-	orng <- RNGscope()
-	# ensure that .Random.seed is defined
-	if( is.null(orng) ) sample(NA)
-	orng <- RNGscope()
-	on.exit(RNGscope(orng))
-	if( !missing(seed) ){		
-		# only use first element
-		seed <- seed[1]
-		set.seed(seed, kind="L'Ecuyer", normal.kind=normal.kind)		
-	}else if( RNGkind()[1] != "L'Ecuyer-CMRG" ) 
-		RNGkind(kind="L'Ecuyer", normal.kind=normal.kind)
-
-	# return generated seed
-	RNGscope()[2:7]
-}
-
-#' Sets/Gets the Seed for Random Streams
+#' This function generate the next random seed used to set the RNG of first 
+#' %dorng% loop iteration. The seeds for the subsequent iterations are then 
+#' obtained with the \code{\link{nextRNGStream}} function.
 #' 
 #' @param seed a single or 6-length numeric. If missing then the current seed is 
 #' returned.
+#' @param normal.kind Type of Normal random generator. See \code{\link{RNG}}.
 #' @param verbose logical to toggle verbose messages
 #' 
-#' @return the current seed (if argument), as a 6-length numeric vector.
+#' @return a 7-length numeric vector.
+#' @seealso \code{\link{RNGseq}}
 #' 
 #' @export
 #' @examples 
 #' 
-#' # store current (future old) doRNG seed  
-#' os <- doRNGseed()
-#' \dontshow{ identical(os, CMRGseed()) }
-#' 
-#' # set doRNG seed generating the seed using the default R RNG
-#' s <- doRNGseed(1)
-#' # this returned the old seed
-#' identical(os, s)
-#' \dontshow{ identical(os, s) }
-#' 
-#' # set doRNG seed using current RNG
-#' \dontshow{ os <- CMRGseed() }
+#' ## generate a seed for %dorng% loops
+#' # random  
+#' doRNGseed() 
+#' doRNGseed()
 #' doRNGseed(NULL)
-#' \dontshow{ !identical(os, CMRGseed()) }
-#' 
-#' # directly set doRNG seed with a 6-length
+#' # fixed
+#' doRNGseed(1)
 #' doRNGseed(1:6)
-#' identical(os, s)
-#' \dontshow{ identical(1:6, CMRGseed()) }
+#' 
+#' # `doRNGseed(1)` is identical to 
+#' set.seed(1)
+#' doRNGseed()
 #'  
-doRNGseed <- function(seed, verbose=FALSE){
+doRNGseed <- function(seed=NULL, normal.kind=NULL, verbose=FALSE){
 		
 	# retrieve current seed
-	oldseed <- CMRGseed()
-	# return current value if missing seed
-	if( missing(seed) ) return(invisible(oldseed))
-	# generate seed if necessary
-	if( is.null(seed) ){
-		if( verbose ) message("# Generate RNGstream random seed ... ", appendLF=FALSE)
-		seed <- CMRGseed()
-		if( verbose ) message("OK")
-	}else if( is.numeric(seed) ){
-		if( length(seed) == 1 ){
+	orng <- RNGscope()
+	on.exit(RNGscope(orng)) # setup RNG restoration in case of an error
+	
+	if( verbose ) message("# Original RNGkind is: ", paste(RNGkind(), collapse=' - '), ' [', paste(head(orng, 7), collapse=', '), ', ...]')
+	# seed with numeric seed
+	if( is.numeric(seed) ){
+		if( length(seed) == 1L ){
 			if( verbose ) message("# Generate RNGstream random seed from ", seed, " ... ", appendLF=FALSE)
-			seed <- CMRGseed(seed)
+			set.seed(seed)
+			RNGkind(kind="L'Ecuyer-CMRG", normal.kind=normal.kind)
 			if( verbose ) message("OK")
 		}
-		else if( length(seed) != 6 )
-			stop("doRNGseed - Invalid numeric seed: should be a numeric of length 1 or 6")		
-	}else if( !isNA(seed) )
-		stop("doRNGseed - Invalid seed value: should be a single numeric, NULL or NA")
-	
-	if( verbose ) message("# Setting RNGstream random seed to: ", paste(seed, collapse=', '), " ... ", appendLF=FALSE)
-	RNGkind("L'Ecuyer")
+		else if( length(seed) == 6L ){
+			if( verbose ) message("# Directly use numeric seed: ",  paste(seed, collapse=', '), " ... ", appendLF=FALSE)
+			RNGkind("L'Ecuyer-CMRG", normal.kind=normal.kind)
+			s <- RNGscope()
+			s[2:7] <- as.integer(seed)
+			RNGscope(s)
+			if( verbose ) message("OK")
+		}else if ( length(seed) == 7L ){
+			if( seed[1] %% 100 != 7L )
+				stop("doRNGseed - Invalid 7-length numeric seed: RNG code should be '7', i.e. of type \"L'Ecuyer-CMRG\"")
+			if( verbose ) message("# Directly use numeric .Random.seed: ",  paste(seed, collapse=', '), " ... ", appendLF=FALSE)
+			RNGscope(seed)
+			if( verbose ) message("OK")
+		}else
+			stop("doRNGseed - Invalid numeric seed: should be a numeric of length 1, 6 or 7")		
+	}else if( is.null(seed) ){
+		if( RNGkind()[1] != "L'Ecuyer-CMRG" ){ # seed with random seed
+			
+			# draw once from the current calling RNG to ensure different seeds
+			# for separate loops
+			runif(1)
+			orng1 <- RNGscope()
+			RNGscope(orng)
+			orng <- orng1
+			
+			if( verbose ) message("# Generate random RNGstream seed: ", appendLF=FALSE)
+			RNGkind(kind="L'Ecuyer", normal.kind=normal.kind)
+			if( verbose ) message("OK")
+		}else{ # seed with next RNG stream 
+			on.exit() # cancel RNG restoration
+			s <- nextRNGStream(orng)
+			if( verbose ) message("# Use next active RNGstream seed: ", paste(s, collapse=', '))
+			RNGscope(s)
+		}
+	}else
+		stop("doRNGseed - Invalid seed value: should be a numeric or NULL")
+
 	s <- RNGscope()
-	s[2:7] <- seed
-	RNGscope(s)
-	if( verbose ) message("OK")
-	invisible(oldseed)
-	
+	if( verbose ) message("# RNGkind is: ", paste(RNGkind(), collapse=' - '), '[', paste(s, collapse=', '), ']')	
+	s	
 }
 
 #' Generate Sequence of Random Streams
@@ -178,13 +144,15 @@ doRNGseed <- function(seed, verbose=FALSE){
 #' The streams are created using L'Ecuyer's RNG, implemented in R core since
 #' version 2.14.0 under the name \code{"L'Ecuyer-CMRG"} (see \code{\link{RNG}}).
 #' 
-#' The generation of the sequence should not affect the current RNG settings. 
+#' Generating a sequence without specifying a seed uses a single draw of the 
+#' current RNG. The generation of a sequence using seed (a single or 6-length 
+#' numeric) a should not affect the current RNG state. 
 #' 
 #' @param n Number of streams to be created
 #' @param seed seed used to initialise the set of streams using \code{\link{doRNGseed}}.
 #' @param unlist a logical that specifies if sequences of length 1 should be
 #' unlisted and returned as a single vector.
-#' @param verbose a logical to toggle verbose messages. 
+#' @param ... extra arguments passed to \code{\link{doRNGseed}}.  
 #' 
 #' @return a list of integer vectors (or a single integer  vector if 
 #' \code{n=1} and \code{unlist=TRUE}).
@@ -194,29 +162,31 @@ doRNGseed <- function(seed, verbose=FALSE){
 #' 
 #' RNGseq(3)
 #' RNGseq(3)
-#' RNGseq(3, seed=1)
+#' RNGseq(3, seed=123)
+#' # or identically
+#' set.seed(123)
+#' identical(RNGseq(3), RNGseq(3, seed=123))
+#' \dontshow{
+#' set.seed(123)
+#' stopifnot( identical(RNGseq(3), RNGseq(3, seed=123)) ) 
+#' }
+#' 
 #' RNGseq(3, seed=1:6, verbose=TRUE)
 #' 
-RNGseq <- function(n, seed=NULL, unlist=TRUE, verbose=FALSE){
+RNGseq <- function(n, seed=NULL, unlist=TRUE, ...){
 	
 	# check parameters
 	if( n <= 0 )
 		stop("NMF::createStream - invalid value for 'n' [positive value expected]")
 	
-	# restore RNG settings on exit
-	orng <- RNGscope()
-	on.exit(RNGscope(orng), add=TRUE)
+	# get initial seed for the CMRG stream sequence
+	.s <- doRNGseed(seed, ...)
 	
-	# force the initial seed
-	doRNGseed(seed, verbose=verbose)
-	
-	# generate the sequence of streams
-	s <- RNGscope()	
 	res <- lapply(1:n, function(i){
-		if( i == 1 ) s
-		else s <<- nextRNGStream(s)				
+		if( i == 1 ) .s
+		else .s <<- nextRNGStream(.s)				
 	})
-	
+
 	# return list or single RNG
 	if( n==1 && unlist )
 		res[[1]]
@@ -314,7 +284,7 @@ setDoBackend <- function(backend){
 #' @examples 
 #' 
 #' library(doParallel)
-#' registerDoParallel(2)
+#' registerDoParallel(cores=2)
 #' 
 #' # standard %dopar% loops are _not_ reproducible
 #' set.seed(1234)
@@ -322,28 +292,28 @@ setDoBackend <- function(backend){
 #' set.seed(1234)
 #' s2 <- foreach(i=1:4) %dopar% { runif(1) }
 #' identical(s1, s2)
-#' \dontshow{ stopifnot( !identical(s1,s2) ) }
 #' 
 #' # single %dorng% loops are reproducible
-#' s1 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
-#' s2 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
-#' identical(s1, s2)
-#' \dontshow{ stopifnot( identical(s1,s2) ) }
+#' r1 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
+#' r2 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
+#' identical(r1, r2)
 #' 
-#' # multiple %dorng% loops are reproducible
-#' seed <- doRNGseed()
+#' # sequences of %dorng% loops are reproducible
+#' set.seed(1234)
 #' s1 <- foreach(i=1:4) %dorng% { runif(1) }
 #' s2 <- foreach(i=1:4) %dorng% { runif(1) }
-#' 
-#' doRNGseed(seed)
+#' # two consecutive (unseed) %dorng% loops are not identical
+#' identical(s1, s2)
+#'
+#' # But the whole sequence of loops is reproducible
+#' set.seed(1234)
 #' s1.2 <- foreach(i=1:4) %dorng% { runif(1) }
 #' s2.2 <- foreach(i=1:4) %dorng% { runif(1) }
 #' identical(s1, s1.2) && identical(s2, s2.2)
-#' \dontshow{ stopifnot( identical(s1,s1.2) && identical(s2,s2.2) ) }
+#' # it gives the same result as with .options.RNG
+#' identical(r1, s1) 
 #' 
 #' # Works with SNOW-like and MPI clusters
-#' 
-#' \dontrun{
 #' # SNOW-like cluster
 #' cl <- makeCluster(2)
 #' registerDoParallel(cl)
@@ -351,71 +321,23 @@ setDoBackend <- function(backend){
 #' s1 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
 #' s2 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
 #' identical(s1, s2)
-#' stopifnot( identical(s1,s2) )
 #' 
 #' stopCluster(cl)
 #' registerDoSEQ()
 #' 
 #' # MPI cluster
-#' library(doMPI)
+#' if( require(doMPI) ){
 #' cl <- startMPIcluster(2)
 #' registerDoMPI(cl)
 #' 
 #' s1 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
 #' s2 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
 #' identical(s1, s2)
-#' stopifnot( identical(s1,s2) )
 #' 
 #' closeCluster(cl)
 #' registerDoSEQ()
 #' }
 #' 
-#' \dontshow{
-#' if( Sys.info()['user'] == 'renaud' ){
-#' # SNOW-like cluster
-#' cl <- makeCluster(2)
-#' registerDoParallel(cl)
-#' 
-#' # standard %dopar% loops are _not_ reproducible
-#' set.seed(1234)
-#' s1 <- foreach(i=1:4) %dopar% { runif(1) }
-#' set.seed(1234)
-#' s2 <- foreach(i=1:4) %dopar% { runif(1) }
-#' identical(s1, s2)
-#' stopifnot( !identical(s1,s2) )
-#'
-#' # %dorng% loops ensure reproducibility
-#' s1 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
-#' s2 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
-#' identical(s1, s2)
-#' stopifnot( identical(s1,s2) )
-#' 
-#' stopCluster(cl)
-#' registerDoSEQ()
-#' 
-#' # Works with doMPI
-#' library(doMPI)
-#' cl <- startMPIcluster(2)
-#' registerDoMPI(cl)
-#'
-#' # standard %dopar% loops are _not_ reproducible
-#' set.seed(1234)
-#' s1 <- foreach(i=1:4) %dopar% { runif(1) }
-#' set.seed(1234)
-#' s2 <- foreach(i=1:4) %dopar% { runif(1) }
-#' identical(s1, s2)
-#' stopifnot( !identical(s1,s2) )
-#' 
-#' # %dorng% loops ensure reproducibility
-#' s1 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
-#' s2 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
-#' identical(s1, s2)
-#' stopifnot( identical(s1,s2) )
-#' 
-#' closeCluster(cl)
-#' registerDoSEQ()
-#' }
-#' }
 #' 
 `%dorng%` <- function(obj, ex){
 	
@@ -427,12 +349,33 @@ setDoBackend <- function(backend){
 	it <- iter(obj)
 	argList <- as.list(it)
 	
-	# keep current RNG and restore it on exit (useful for the sequential backend doSEQ)
-	RNG.old <- RNGscope()
-	on.exit({RNGscope(RNG.old)}, add=TRUE)
+	# restore current RNG  on exit if a seed is passed
+	if( !is.null(obj$options$RNG) ){
+		RNG.old <- RNGscope()
+		on.exit({RNGscope(RNG.old)}, add=TRUE)
+	}
 	
 	# generate a sequence of streams
-	obj$args$.doRNG.stream <- RNGseq(length(argList), obj$options$RNG)
+#	print("before RNGseq")
+#	print(head(RNGscope()))
+	obj$args$.doRNG.stream <- RNGseq(length(argList), obj$options$RNG, verbose=obj$verbose)
+#	print("after RNGseq")
+#	print(head(RNGscope()))
+	#print(obj$args$.doRNG.stream)
+	## SEPCIAL CASE FOR doSEQ or doMPI
+	# TODO: figure out why doMPI draw once from the current RNG (must be linked
+	# to using own code to setup L'Ecuyer RNG)
+	# restore RNG settings as after RNGseq if doSEQ is the backend and no seed was passed
+	dp <- getDoParName()
+#	print(dp)
+	if( is.null(obj$options$RNG) && (is.null(dp) || dp=='doSEQ' || dp=='doMPI') ){
+#		print("reset as after RNGseq")
+		RNG.old <- RNGscope()
+		on.exit({RNGscope(RNG.old)}, add=TRUE)
+	}
+	##
+	
+	# export package doRNG if not already exported
 	if( is.null(obj$packages) || !('doRNG' %in% obj$packages) )
 		obj$packages <- c(obj$packages, 'doRNG')
 	
@@ -441,8 +384,19 @@ setDoBackend <- function(backend){
 					quote({RNGscope(.doRNG.stream);}),
 					substitute(ex)))
 	
+	# directly register (temporarly) the computing backend
+	if( dp == 'doRNG' ){
+		rngBackend <- getDoBackend()
+		on.exit({setDoBackend(rngBackend)}, add=TRUE)
+		setDoBackend(rngBackend$data$backend)
+	}
+	
 	# call the standard %dopar% operator
-	do.call('%dopar%', list(obj, ex), envir=parent.frame())
+	res <- do.call('%dopar%', list(obj, ex), envir=parent.frame())
+	# add first seed as an attribute
+	attr(res, 'RNG') <- obj$args$.doRNG.stream[[1]]
+	# return result
+	res
 }
 
 #' \code{registerDoRNG} registers the doRNG foreach backend.
@@ -467,52 +421,61 @@ setDoBackend <- function(backend){
 #' cl <- makeCluster(2)
 #' registerDoParallel(cl)
 #' 
-#' # One can make existing %dopar% loops reproducible using %dorng% loops or registerDoRNG  
+#' # One can make reproducible loops using the %dorng% operator
 #' r1 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
+#' # or convert %dopar% loops using registerDoRNG
 #' registerDoRNG(1234)
 #' r2 <- foreach(i=1:4) %dopar% { runif(1) }
 #' identical(r1, r2)
-#' \dontshow{ stopifnot( identical(r1, r2) ) }
 #' stopCluster(cl)
 #'
 #' # Registering another foreach backend disables doRNG
 #' cl <- makeCluster(3)
 #' registerDoParallel(cl)
+#' set.seed(1234)
 #' s1 <- foreach(i=1:4) %dopar% { runif(1) }
+#' set.seed(1234)
 #' s2 <- foreach(i=1:4) %dopar% { runif(1) }
 #' identical(s1, s2)
-#' \dontshow{ stopifnot( !identical(s1, s2) ) }
+#' \dontshow{ stopifnot(!identical(s1, s2)) }
 #' 
 #' # doRNG is re-nabled by re-registering it 
-#' registerDoRNG(1234)
+#' registerDoRNG()
+#' set.seed(1234)
 #' r3 <- foreach(i=1:4) %dopar% { runif(1) }
 #' identical(r2, r3)
 #' # NB: the results are identical independently of the task scheduling
 #' # (r2 used 2 nodes, while r3 used 3 nodes)
-#' \dontshow{ stopifnot( identical(r2, r3) ) }
 #' 
-#' # argument `once=FALSE` reseed doRNG's seed at the begining each loop 
+#' # argument `once=FALSE` reseeds doRNG's seed at the beginning of each loop 
 #' registerDoRNG(1234, once=FALSE)
 #' r1 <- foreach(i=1:4) %dopar% { runif(1) }
 #' r2 <- foreach(i=1:4) %dopar% { runif(1) }
 #' identical(r1, r2)
-#' \dontshow{ stopifnot( identical(r1, r2) && identical(r1, r3)) }
 #' 
 #' # Once doRNG is registered the seed can also be passed as an option to %dopar%
 #' r1.2 <- foreach(i=1:4, .options.RNG=456) %dopar% { runif(1) }
 #' r2.2 <- foreach(i=1:4, .options.RNG=456) %dopar% { runif(1) }
 #' identical(r1.2, r2.2) && !identical(r1.2, r1)
-#' \dontshow{ stopifnot( identical(r1.2, r2.2) && !identical(r1.2, r1) ) }
+#' \dontshow{ stopifnot(identical(r1.2, r2.2) && !identical(r1.2, r1)) }
 #' 
 #' stopCluster(cl)
 #' 
-registerDoRNG <- function(seed, once=TRUE){
+registerDoRNG <- function(seed=NULL, once=TRUE){
 	
 	backend <- getDoBackend()
 	
 	# use stored backend if registerDoRNG was called repeatedly
 	if( getDoParName() == 'doRNG' )
 		backend <- backend$data$backend
+	
+	# set the current RNG with seed immediately if only used once
+	if( once && !is.null(seed) ){
+		if( !is.numeric(seed) || length(seed)!=1L )
+			stop("Invalid seed: must be a single numeric value.")
+		set.seed(seed)
+		seed <- NULL
+	}
 	
 	setDoPar(doRNG, list(seed=seed, once=once, nseed=0, backend=backend), infoDoRNG)	
 	

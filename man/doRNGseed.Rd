@@ -1,41 +1,43 @@
 \name{doRNGseed}
 \alias{doRNGseed}
-\title{Sets/Gets the Seed for Random Streams}
+\title{Creating Initial Seed for Random Streams}
 \usage{
-  doRNGseed(seed, verbose = FALSE)
+  doRNGseed(seed = NULL, normal.kind = NULL,
+    verbose = FALSE)
 }
 \arguments{
   \item{seed}{a single or 6-length numeric. If missing then
   the current seed is returned.}
 
+  \item{normal.kind}{Type of Normal random generator. See
+  \code{\link{RNG}}.}
+
   \item{verbose}{logical to toggle verbose messages}
 }
 \value{
-  the current seed (if argument), as a 6-length numeric
-  vector.
+  a 7-length numeric vector.
 }
 \description{
-  Sets/Gets the Seed for Random Streams
+  This function generate the next random seed used to set
+  the RNG of first %dorng% loop iteration. The seeds for
+  the subsequent iterations are then obtained with the
+  \code{\link{nextRNGStream}} function.
 }
 \examples{
-# store current (future old) doRNG seed
-os <- doRNGseed()
-\dontshow{ identical(os, CMRGseed()) }
-
-# set doRNG seed generating the seed using the default R RNG
-s <- doRNGseed(1)
-# this returned the old seed
-identical(os, s)
-\dontshow{ identical(os, s) }
-
-# set doRNG seed using current RNG
-\dontshow{ os <- CMRGseed() }
+## generate a seed for \%dorng\% loops
+# random
+doRNGseed()
+doRNGseed()
 doRNGseed(NULL)
-\dontshow{ !identical(os, CMRGseed()) }
-
-# directly set doRNG seed with a 6-length
+# fixed
+doRNGseed(1)
 doRNGseed(1:6)
-identical(os, s)
-\dontshow{ identical(1:6, CMRGseed()) }
+
+# `doRNGseed(1)` is identical to
+set.seed(1)
+doRNGseed()
+}
+\seealso{
+  \code{\link{RNGseq}}
 }
 

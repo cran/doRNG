@@ -2,7 +2,7 @@
 \alias{RNGseq}
 \title{Generate Sequence of Random Streams}
 \usage{
-  RNGseq(n, seed = NULL, unlist = TRUE, verbose = FALSE)
+  RNGseq(n, seed = NULL, unlist = TRUE, ...)
 }
 \arguments{
   \item{n}{Number of streams to be created}
@@ -14,7 +14,8 @@
   length 1 should be unlisted and returned as a single
   vector.}
 
-  \item{verbose}{a logical to toggle verbose messages.}
+  \item{...}{extra arguments passed to
+  \code{\link{doRNGseed}}.}
 }
 \value{
   a list of integer vectors (or a single integer vector if
@@ -31,13 +32,23 @@
   in R core since version 2.14.0 under the name
   \code{"L'Ecuyer-CMRG"} (see \code{\link{RNG}}).
 
-  The generation of the sequence should not affect the
-  current RNG settings.
+  Generating a sequence without specifying a seed uses a
+  single draw of the current RNG. The generation of a
+  sequence using seed (a single or 6-length numeric) a
+  should not affect the current RNG state.
 }
 \examples{
 RNGseq(3)
 RNGseq(3)
-RNGseq(3, seed=1)
+RNGseq(3, seed=123)
+# or identically
+set.seed(123)
+identical(RNGseq(3), RNGseq(3, seed=123))
+\dontshow{
+set.seed(123)
+stopifnot( identical(RNGseq(3), RNGseq(3, seed=123)) )
+}
+
 RNGseq(3, seed=1:6, verbose=TRUE)
 }
 

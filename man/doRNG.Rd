@@ -48,15 +48,6 @@
   \code{\%dorng\%} returns the result of the foreach loop.
   See \code{\link{\%dopar\%}}.
 }
-\author{
-  Renaud Gaujoux
-}
-\seealso{
-  \code{\link{foreach}}, \code{\link{rstream}} ,
-  \code{\link[doMC]{doMC}},
-  \code{\link[doSNOW]{registerDoSNOW}},
-  \code{\link[doMPI]{doMPI}}
-}
 \examples{
 if( require(doMC) ){
 
@@ -186,5 +177,13 @@ identical(r1.2, r2.2) && !identical(r1, r1.2)
 \dontshow{ stopifnot( identical(r1.2, r2.2) && !identical(r1, r1.2) ) }
 
 }
+}
+\author{
+  Renaud Gaujoux
+}
+\seealso{
+  \code{\link{foreach}}, \code{\link[doMC]{doMC}} ,
+  \code{\link[doSNOW]{registerDoSNOW}},
+  \code{\link[doMPI]{doMPI}}
 }
 

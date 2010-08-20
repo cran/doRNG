@@ -1,0 +1,8 @@
+*************************************************************************
+*                       Changes in version 1.1                          *
+*************************************************************************
+
+CHANGES
+    o use R core RNG "L'Ecuyer-CMRG" and the parallel package, 
+    instead of the implementation provided by the rstream package.
+  

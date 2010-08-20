@@ -7,103 +7,107 @@
 # Check if an object is NA
 isNA <- function(x) identical(x, NA) || identical(x, as.numeric(NA)) || identical(x, as.integer(NA))
 
-#' Internal Functions Interfacing with the rstream Package
+#' Local RNG scope
 #' 
-#' \code{.rstream.get.seed} returns the seed that rstream will use to generate 
-#' the next random stream.
+#' Save and restore RNG settings enabling their local changes. 
 #' 
-#' @return \code{.rstream.get.seed} returns the current value of the seed 
-#' (i.e. a 6-length numeric vector)
-#' 
-#' @export
-#' @rdname rstream
-#' @keywords internal
-.rstream.get.seed <- function(){
-	get(".rstream.mrg32k3a.DefaultSeed", envir=rstream:::.rstream.envir)
-}
-
-#' \code{.rstream.set.seed} sets the seed that rstream will use to generate 
-#' the next random stream.
-#' 
-#' @return \code{.rstream.set.seed} returns the old value of the seed 
-#' (i.e. a 6-length numeric vector) 
+#' @param seed numeric (integer) vector used to restore the RNG settings.
+#' Typically the result of a call to \code{RNGscope()}.
+#' @return a numeric (integer) vector  containing the current value of 
+#' \code{\link{.Random.seed}} or \code{NULL}. 
 #' 
 #' @export
-#' @rdname rstream
-.rstream.set.seed <- function(seed){
+#' @seealso \code{\link{.Random.seed}}
+#' 
+#' @examples 
+#' 
+#' f <- function(){
+#' 	orng <- RNGscope()
+#'  on.exit(RNGscope(orng))
+#' 	RNGkind('Marsaglia')
+#' 	runif(10)
+#' }
+#' 
+#' sample(NA)
+#' s <- .Random.seed
+#' f()
+#' identical(s, .Random.seed)
+#' \dontshow{ stopifnot(identical(s, .Random.seed)) }
+#'  
+RNGscope <- function(seed){
 	
-	# check sed validity
-	seed <- rstream:::.rstream.mrg32k3a.CheckSeed(seed)
-	# retrieve current value
-	old <- get(".rstream.mrg32k3a.DefaultSeed", envir=rstream:::.rstream.envir)
-	
-	## save seed in rstream library
-	.Call("R_RngStreams_SetPackageSeed", as.double(seed), PACKAGE="rstream")	
-	## save seed as R variable
-	assign(".rstream.mrg32k3a.DefaultSeed",	as.double(seed), envir=rstream:::.rstream.envir)
-	assign(".rstream.mrg32k3a.HasSeed", TRUE, envir=rstream:::.rstream.envir)
-	
-	# return old seed
-	invisible(old)
+	res <- if( missing(seed) ){
+				if( exists('.Random.seed', where = .GlobalEnv) )
+					get('.Random.seed', .GlobalEnv)
+			}else if( is.null(seed) ){
+				if( exists('.Random.seed', where = .GlobalEnv) )
+					rm('.Random.seed', envir = .GlobalEnv)
+			}else{
+				assign('.Random.seed', seed, .GlobalEnv)
+			}
+	invisible(res)
 }
 
-#' \code{.RNGgenSeed} generates a 6-length numeric seed used for seeding 
-#' random streams.
+#' \code{CMRGseed} generates a 6-length numeric seed used for seeding 
+#' multiple random streams for L'Ecuyer's RNG.
 #' 
 #' @param seed a single or 6-length numeric. If missing a random seed is 
-#' generated using the current RNG. 
+#' generated using the current RNG, but will not change its current state.
+#' @param normal.kind character string or \code{NULL} (default) that indicates 
+#' the random normal generator to use. This argument is passed to 
+#' \code{\link{RNGkind}} or \code{\link{set.seed}} depending if argument 
+#' \code{seed} is missing or not.    
 #' 
-#' @return \code{.RNGgenSeed} returns the generated seed 
-#' (i.e. a 6-length numeric vector)
+#' @return \code{CMRGseed} returns the generated seed (i.e. a 6-length numeric vector)
 #' 
-#' @rdname rstream
 #' @export
 #' 
 #' @examples
 #' 
-#' # generate random seed for rstream
-#' .RNGgenSeed()
+#' # generate random seed for L'Ecuyer's RNG
+#' CMRGseed()
 #' 
-#' # generate random seed for rstream using seed for current RNG
+#' # generate random seed for L'Ecuyer's RNG using a seed for current RNG
 #' # => this should not change the current value of .Random.seed 
 #' rs <- .Random.seed
-#' .RNGgenSeed(1)
+#' CMRGseed(1)
 #' identical(rs, .Random.seed)
 #' 
 #' \dontshow{
 #' 
 #' # Unit tests
 #' rs <- .Random.seed
-#' stopifnot( length(.RNGgenSeed()) == 6 )
-#' stopifnot( !identical(rs, .Random.seed) )
+#' stopifnot( length(CMRGseed()) == 6 )
+#' stopifnot( identical(rs, .Random.seed) )
 #' 
 #' rs <- .Random.seed
-#' stopifnot( length(.RNGgenSeed(1)) == 6 )
+#' stopifnot( length(CMRGseed(1)) == 6 )
 #' stopifnot( identical(rs, .Random.seed) )
+#' stopifnot( all(!is.na(CMRGseed(1))) )
 #' 
 #' }
 #' 
 #' 
-.RNGgenSeed <- function(seed){
+CMRGseed <- function(seed, normal.kind=NULL){
 	
-	ru <- if( !missing(seed) ){
-				
-				# only use first element
-				seed <- seed[1]
-				rng <- new('rstream.runif', kind='default', seed=seed)
-				r(rng, 6)
-			}else
-				runif(6)
-	
-	# between 0 and 999999
-	ceiling(ru * 999999)
+	orng <- RNGscope()
+	on.exit(RNGscope(orng))
+	if( !missing(seed) ){		
+		# only use first element
+		seed <- seed[1]
+		set.seed(seed, kind="L'Ecuyer", normal.kind=normal.kind)		
+	}else if( RNGkind()[1] != "L'Ecuyer-CMRG" ) 
+		RNGkind(kind="L'Ecuyer", normal.kind=normal.kind)
+
+	# return generated seed
+	RNGscope()[2:7]
 }
 
 #' Sets/Gets the Seed for Random Streams
 #' 
 #' @param seed a single or 6-length numeric. If missing then the current seed is 
 #' returned.
-#' @param verbose logical to toggle verbosity messages
+#' @param verbose logical to toggle verbose messages
 #' 
 #' @return the current seed (if argument), as a 6-length numeric vector.
 #' 
@@ -112,7 +116,7 @@ isNA <- function(x) identical(x, NA) || identical(x, as.numeric(NA)) || identica
 #' 
 #' # store current (future old) doRNG seed  
 #' os <- doRNGseed()
-#' \dontshow{ identical(os, .rstream.get.seed()) }
+#' \dontshow{ identical(os, CMRGseed()) }
 #' 
 #' # set doRNG seed generating the seed using the default R RNG
 #' s <- doRNGseed(1)
@@ -121,30 +125,30 @@ isNA <- function(x) identical(x, NA) || identical(x, as.numeric(NA)) || identica
 #' \dontshow{ identical(os, s) }
 #' 
 #' # set doRNG seed using current RNG
-#' \dontshow{ os <- .rstream.get.seed() }
+#' \dontshow{ os <- CMRGseed() }
 #' doRNGseed(NULL)
-#' \dontshow{ !identical(os, .rstream.get.seed()) }
+#' \dontshow{ !identical(os, CMRGseed()) }
 #' 
 #' # directly set doRNG seed with a 6-length
 #' doRNGseed(1:6)
 #' identical(os, s)
-#' \dontshow{ identical(1:6, .rstream.get.seed()) }
+#' \dontshow{ identical(1:6, CMRGseed()) }
 #'  
 doRNGseed <- function(seed, verbose=FALSE){
 		
 	# retrieve current seed
-	oldseed <- .rstream.get.seed()
+	oldseed <- CMRGseed()
 	# return current value if missing seed
 	if( missing(seed) ) return(invisible(oldseed))
 	# generate seed if necessary
 	if( is.null(seed) ){
 		if( verbose ) message("# Generate RNGstream random seed ... ", appendLF=FALSE)
-		seed <- .RNGgenSeed()
+		seed <- CMRGseed()
 		if( verbose ) message("OK")
 	}else if( is.numeric(seed) ){
 		if( length(seed) == 1 ){
 			if( verbose ) message("# Generate RNGstream random seed from ", seed, " ... ", appendLF=FALSE)
-			seed <- .RNGgenSeed(seed)
+			seed <- CMRGseed(seed)
 			if( verbose ) message("OK")
 		}
 		else if( length(seed) != 6 )
@@ -153,65 +157,62 @@ doRNGseed <- function(seed, verbose=FALSE){
 		stop("doRNGseed - Invalid seed value: should be a single numeric, NULL or NA")
 	
 	if( verbose ) message("# Setting RNGstream random seed to: ", paste(seed, collapse=', '), " ... ", appendLF=FALSE)
-	.rstream.set.seed(seed)
+	RNGkind("L'Ecuyer")
+	s <- RNGscope()
+	s[2:7] <- seed
+	RNGscope(s)
+	if( verbose ) message("OK")
 	invisible(oldseed)
 	
 }
 
 #' Generate Sequence of Random Streams
 #' 
-#' Create a given number of rstream objects to be used as random number generators
-#' for each NMF run when performing multiple runs.
+#' Create a given number of seeds for L'Ecuyer's RNG, that can be used to seed 
+#' parallel computation, making them fully reproducible.
 #' 
 #' This ensures complete reproducibility of the set of run. 
-#' The streams are created using the RNGstream C++ package (from P. L'Ecuyer), 
-#' using the interface provided by the R package rstream.
+#' The streams are created using L'Ecuyer's RNG, implemented in R core since
+#' version 2.14.0 under the name \code{"L'Ecuyer-CMRG"} (see \code{\link{RNG}}).
 #' 
-#' If a seed is provided, the original rstream seed is restored on exit, so that
-#' the consistency of the global sequence of streams generated is not jeopardised.
+#' The generation of the sequence should not affect the current RNG settings. 
 #' 
 #' @param n Number of streams to be created
-#' @param seed seed used to initialise the set of streams. If \code{NA}, then the 
-#' streams are created using the current rstream seed. Otherwise, it is passed to 
-#' \code{\link{doRNGseed}} to seed rstream.
-#' @param packed Logical. If TRUE the streams are returned packed 
-#' (see \code{\link{rstream.packed}}).
-#' @param prefix a character string used as a prefix in the names of the 
-#' \code{\link{rstream}} objects.
-#' @param unlist a logical that specifies if sequences of length 1 should be 
-#' unlisted and returned as a single rstream object.
-#' @param verbose a logical to toggle verbosity. 
+#' @param seed seed used to initialise the set of streams using \code{\link{doRNGseed}}.
+#' @param unlist a logical that specifies if sequences of length 1 should be
+#' unlisted and returned as a single vector.
+#' @param verbose a logical to toggle verbose messages. 
 #' 
-#' @return a list of \code{\link{rstream}} objects (or a single rstream object if 
+#' @return a list of integer vectors (or a single integer  vector if 
 #' \code{n=1} and \code{unlist=TRUE}).
 #' 
 #' @export 
 #' @examples
 #' 
 #' RNGseq(3)
-#' RNGseq(3, packed=TRUE)
-#' RNGseq(3, seed=1, packed=TRUE)
+#' RNGseq(3)
+#' RNGseq(3, seed=1)
 #' RNGseq(3, seed=1:6, verbose=TRUE)
-#' RNGseq(3, prefix='myrng')
 #' 
-RNGseq <- function(n, seed=NA, packed=TRUE, prefix=NULL, unlist=TRUE, verbose=FALSE){
+RNGseq <- function(n, seed=NULL, unlist=TRUE, verbose=FALSE){
 	
 	# check parameters
 	if( n <= 0 )
 		stop("NMF::createStream - invalid value for 'n' [positive value expected]")
 	
-	# force the initial seed if provided
-	if( !isNA(seed) ){
-		oldseed <- doRNGseed(seed, verbose=verbose)
-		on.exit({.rstream.set.seed(oldseed)}, add=TRUE)
-	}
+	# restore RNG settings on exit
+	orng <- RNGscope()
+	on.exit(RNGscope(orng), add=TRUE)
+	
+	# force the initial seed
+	doRNGseed(seed, verbose=verbose)
 	
 	# generate the sequence of streams
+	s <- RNGscope()	
 	res <- lapply(1:n, function(i){
-				s <- new('rstream.mrg32k3a', name=if( !is.null(prefix) ) paste(prefix, i, sep="_") else NULL );
-				rstream.packed(s) <- packed;
-				s}
-	)
+		if( i == 1 ) s
+		else s <<- nextRNGStream(s)				
+	})
 	
 	# return list or single RNG
 	if( n==1 && unlist )
@@ -244,7 +245,7 @@ infoDoRNG <- function (data, item)
 	switch(item
 			, workers = data$backend$info(data$backend$data, "workers")
 			, name = "doRNG"
-			, version = "doRNG 1.0" 
+			, version = "doRNG 1.1" 
 			, NULL)
 }
 
@@ -269,7 +270,7 @@ doRNG <- function (obj, ex, envir, data){
 			data$seed
 		}
 		else
-			NA
+			NULL
 	}
 	
 	data$nseed <- data$nseed + 1					
@@ -304,9 +305,9 @@ setDoBackend <- function(backend){
 #' @export 
 #' @rdname doRNG
 #' @aliases doRNG
-#' @usage obj \%dorng\% ex
-#' @seealso \code{\link{foreach}}, \code{\link{rstream}}
-#' , \code{\link[doMC]{doMC}}, \code{\link[doSNOW]{registerDoSNOW}}, \code{\link[doMPI]{doMPI}}
+#' @usage obj %dorng% ex
+#' @seealso \code{\link{foreach}}, \code{\link[doMC]{doMC}}
+#' , \code{\link[doSNOW]{registerDoSNOW}}, \code{\link[doMPI]{doMPI}}
 #' @examples 
 #' 
 #' if( require(doMC) ){
@@ -404,23 +405,23 @@ setDoBackend <- function(backend){
 	
 	# if an RNG seed is provided then setup random streams 
 	# and add the list of RNGs to use as an iterated arguments for %dopar%
-	library(rstream)
+	library(parallel)
 	obj$argnames <- c(obj$argnames, '.RNG.stream')
 	it <- iter(obj)
 	argList <- as.list(it)
 	
 	# keep current RNG and restore it on exit (useful for the sequential backend doSEQ)
-	RNG.old <- rstream.RNG()	
-	on.exit({rstream.RNG(RNG.old)}, add=TRUE)
+	RNG.old <- RNGscope()
+	on.exit({RNGscope(RNG.old)}, add=TRUE)
 	
 	# generate a sequence of streams
-	obj$args$.RNG.stream <- RNGseq(length(argList), obj$options$RNG, packed=TRUE)
-	if( is.null(obj$packages) || !('rstream' %in% obj$packages) )
-		obj$packages <- c(obj$packages, 'rstream')
+	obj$args$.RNG.stream <- RNGseq(length(argList), obj$options$RNG)
+	if( is.null(obj$packages) || !('doRNG' %in% obj$packages) )
+		obj$packages <- c(obj$packages, 'doRNG')
 	
 	# append code to the loop expression to set the RNG
 	ex <- as.call(list(as.name('{'),
-					quote({rstream.packed(.RNG.stream) <- FALSE; rstream.RNG(.RNG.stream);}),
+					quote({RNGscope(.RNG.stream);}),
 					substitute(ex)))
 	
 	# call the standard %dopar% operator
@@ -430,8 +431,8 @@ setDoBackend <- function(backend){
 #' \code{registerDoRNG} registers the doRNG foreach backend.
 #' Subsequent \%dopar\% loops are actually performed using the previously 
 #' registered foreach backend, but the RNG is set, before each iteration, 
-#' to an \code{\link{rstream}} object, that is part of a reproducible sequence 
-#' of statistically independent random streams.
+#' with seeds, that generate a reproducible sequence of statistically 
+#' independent random streams.
 #' 
 #' Note that (re-)registering a foreach backend other than doRNG, after a call 
 #' to \code{registerDoRNG} disables doRNG -- which then needs to be registered.
@@ -506,8 +507,8 @@ registerDoRNG <- function(seed, once=TRUE){
 ###% that ensures the reproducibility of the results, when stochastic computations
 ###% are involved.
 ###% 
-###% The reproducibility is achieved by using the interface provided by the package 
-###% \code{link[package:rstream]{rstream}} to generate independent random streams 
+###% The reproducibility is achieved by using LEcuyer's RNG provided by R core
+###% since R-2.14.0, to generate independent random streams 
 ###% that are used as the random number generator for each replicate.
 ###% 
 ###% @param n the number of replication as a single numeric (integer)
@@ -519,27 +520,27 @@ registerDoRNG <- function(seed, once=TRUE){
 ###% 
 ###% 
 ###%  
-reproduce <- function (n, expr, seed=NULL, simplify = TRUE){
-	f <- eval.parent(substitute(function(...) expr))
-	xapply(integer(n), seed, f, simplify = simplify)
-}
-
-xapply <- function (X, FUN, seed=NULL, ..., simplify = TRUE, USE.NAMES = TRUE){
-	
-	# generate a sequence of streams
-	.RNG.stream <- RNGseq(length(X), seed, packed=TRUE)
-	
-	# keep current RNG and restore it on exit (useful for the sequential backend doSEQ)
-	RNG.old <- rstream.RNG()
-	on.exit(rstream.RNG(RNG.old), add=TRUE)
-	
-	# append code to the loop expression to set the RNG	
-	expr <- as.call(list(as.name('{'),
-					quote({doRNGseed(.rng);}),
-					quote(do.call(FUN, list(...)))))
-	
-	env <- environment(FUN)
-	f <- eval(substitute(function(.rng, ..., FUN) expr), env)	
-	mapply(f, .RNG.stream, X, MoreArgs=c(list(...), FUN=FUN), 
-			SIMPLIFY = simplify, USE.NAMES= USE.NAMES)
-}
+#reproduce <- function (n, expr, seed=NULL, simplify = TRUE){
+#	f <- eval.parent(substitute(function(...) expr))
+#	xapply(integer(n), seed, f, simplify = simplify)
+#}
+#
+#xapply <- function (X, FUN, seed=NULL, ..., simplify = TRUE, USE.NAMES = TRUE){
+#	
+#	# generate a sequence of streams
+#	.RNG.stream <- RNGseq(length(X), seed, packed=TRUE)
+#	
+#	# keep current RNG and restore it on exit (useful for the sequential backend doSEQ)
+#	RNG.old <- rstream.RNG()
+#	on.exit(rstream.RNG(RNG.old), add=TRUE)
+#	
+#	# append code to the loop expression to set the RNG	
+#	expr <- as.call(list(as.name('{'),
+#					quote({doRNGseed(.rng);}),
+#					quote(do.call(FUN, list(...)))))
+#	
+#	env <- environment(FUN)
+#	f <- eval(substitute(function(.rng, ..., FUN) expr), env)	
+#	mapply(f, .RNG.stream, X, MoreArgs=c(list(...), FUN=FUN), 
+#			SIMPLIFY = simplify, USE.NAMES= USE.NAMES)
+#}

@@ -11,7 +11,7 @@
   \item{seed}{a single or 6-length numeric. If missing then
   the current seed is returned.}
 
-  \item{verbose}{logical to toggle verbosity messages}
+  \item{verbose}{logical to toggle verbose messages}
 }
 \value{
   the current seed (if argument), as a 6-length numeric
@@ -20,7 +20,7 @@
 \examples{
 # store current (future old) doRNG seed
 os <- doRNGseed()
-\dontshow{ identical(os, .rstream.get.seed()) }
+\dontshow{ identical(os, CMRGseed()) }
 
 # set doRNG seed generating the seed using the default R RNG
 s <- doRNGseed(1)
@@ -29,13 +29,13 @@ identical(os, s)
 \dontshow{ identical(os, s) }
 
 # set doRNG seed using current RNG
-\dontshow{ os <- .rstream.get.seed() }
+\dontshow{ os <- CMRGseed() }
 doRNGseed(NULL)
-\dontshow{ !identical(os, .rstream.get.seed()) }
+\dontshow{ !identical(os, CMRGseed()) }
 
 # directly set doRNG seed with a 6-length
 doRNGseed(1:6)
 identical(os, s)
-\dontshow{ identical(1:6, .rstream.get.seed()) }
+\dontshow{ identical(1:6, CMRGseed()) }
 }
 

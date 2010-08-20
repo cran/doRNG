@@ -1,4 +1,16 @@
 *************************************************************************
+*                       Changes in version 1.2                          *
+*************************************************************************
+
+BUG FIX
+    o An error was thrown if using %dorng% loops before using any random
+    generator. Thanks to Eric Lehmann for reporting this.
+
+CHANGES
+    o add vignette
+    o use package doParallel in examples
+
+*************************************************************************
 *                       Changes in version 1.1                          *
 *************************************************************************
 

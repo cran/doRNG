@@ -2,10 +2,6 @@
 \alias{CMRGseed}
 \title{\code{CMRGseed} generates a 6-length numeric seed used for seeding
 multiple random streams for L'Ecuyer's RNG.}
-\description{
-  \code{CMRGseed} generates a 6-length numeric seed used
-  for seeding multiple random streams for L'Ecuyer's RNG.
-}
 \usage{
   CMRGseed(seed, normal.kind = NULL)
 }
@@ -23,6 +19,10 @@ multiple random streams for L'Ecuyer's RNG.}
 \value{
   \code{CMRGseed} returns the generated seed (i.e. a
   6-length numeric vector)
+}
+\description{
+  \code{CMRGseed} generates a 6-length numeric seed used
+  for seeding multiple random streams for L'Ecuyer's RNG.
 }
 \examples{
 # generate random seed for L'Ecuyer's RNG

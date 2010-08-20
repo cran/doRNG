@@ -1,10 +1,6 @@
 \name{RNGscope}
 \alias{RNGscope}
 \title{Local RNG scope}
-\description{
-  Save and restore RNG settings enabling their local
-  changes.
-}
 \usage{
   RNGscope(seed)
 }
@@ -16,6 +12,10 @@
 \value{
   a numeric (integer) vector containing the current value
   of \code{\link{.Random.seed}} or \code{NULL}.
+}
+\description{
+  Save and restore RNG settings enabling their local
+  changes.
 }
 \examples{
 f <- function(){

@@ -1,0 +1,8 @@
+\documentclass[10pt]{article}
+%\VignetteIndexEntry{Using the package doRNG}
+%\VignetteDepends{doRNG,bibtex,doParallel}
+\usepackage{url}
+\usepackage[colorlinks]{hyperref}
+
+\begin{document}
+\end{document}

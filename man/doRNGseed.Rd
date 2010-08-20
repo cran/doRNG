@@ -1,9 +1,6 @@
 \name{doRNGseed}
 \alias{doRNGseed}
 \title{Sets/Gets the Seed for Random Streams}
-\description{
-  Sets/Gets the Seed for Random Streams
-}
 \usage{
   doRNGseed(seed, verbose = FALSE)
 }
@@ -16,6 +13,9 @@
 \value{
   the current seed (if argument), as a 6-length numeric
   vector.
+}
+\description{
+  Sets/Gets the Seed for Random Streams
 }
 \examples{
 # store current (future old) doRNG seed

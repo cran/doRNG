@@ -21,18 +21,23 @@
   yes\cr }
 }
 \examples{
-if( require(doMC) ){
+library(doParallel)
+cl <- makeCluster(2)
+registerDoParallel(cl)
 
-library(doMC)
-registerDoMC()
+r1 <- foreach(i=1:4) \%dopar\%{ runif(1) }
+r2 <- foreach(i=1:4) \%dopar\%{ runif(1) }
+identical(r1, r2)
 
-unlist(foreach(i=1:4, .options.RNG=123) \%dorng\%{ runif(1) })
-unlist(foreach(i=1:4, .options.RNG=123) \%dorng\%{ runif(1) })
+r1 <- foreach(i=1:4, .options.RNG=123) \%dorng\%{ runif(1) }
+r2 <- foreach(i=1:4, .options.RNG=123) \%dorng\%{ runif(1) }
+identical(r1, r2)
 
 registerDoRNG(1234)
-unlist(foreach(i=1:4) \%dopar\%{ runif(1) })
+r3 <- foreach(i=1:4) \%dopar\%{ runif(1) }
+identical(r3, r1)
 
-}
+stopCluster(cl)
 }
 \author{
   Renaud Gaujoux \email{renaud@cbio.uct.ac.za},

@@ -4,18 +4,6 @@
 \alias{infoDoRNG}
 \alias{registerDoRNG}
 \title{Reproducible Parallel Foreach Backend}
-\description{
-  \code{infoDoRNG} returns information about the doRNG
-  backend.
-
-  \code{\%dorng\%} provides an alternative operator
-  \code{\%dopar\%}, that ensures reproducible foreach
-  loops.
-
-  Note that (re-)registering a foreach backend other than
-  doRNG, after a call to \code{registerDoRNG} disables
-  doRNG -- which then needs to be registered.
-}
 \usage{
   infoDoRNG(data, item)
 
@@ -48,11 +36,21 @@
   \code{\%dorng\%} returns the result of the foreach loop.
   See \code{\link{\%dopar\%}}.
 }
-\examples{
-if( require(doMC) ){
+\description{
+  \code{infoDoRNG} returns information about the doRNG
+  backend.
 
-library(doMC)
-registerDoMC()
+  \code{\%dorng\%} provides an alternative operator
+  \code{\%dopar\%}, that ensures reproducible foreach
+  loops.
+
+  Note that (re-)registering a foreach backend other than
+  doRNG, after a call to \code{registerDoRNG} disables
+  doRNG -- which then needs to be registered.
+}
+\examples{
+library(doParallel)
+registerDoParallel(2)
 
 # standard \%dopar\% loops are _not_ reproducible
 set.seed(1234)
@@ -79,32 +77,30 @@ s2.2 <- foreach(i=1:4) \%dorng\% { runif(1) }
 identical(s1, s1.2) && identical(s2, s2.2)
 \dontshow{ stopifnot( identical(s1,s1.2) && identical(s2,s2.2) ) }
 
-}
-
-# Works with doSNOW and doMPI
+# Works with SNOW-like and MPI clusters
 
 \dontrun{
-library(doSNOW)
+# SNOW-like cluster
 cl <- makeCluster(2)
-registerDoSNOW(cl)
+registerDoParallel(cl)
 
 s1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
 s2 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
 identical(s1, s2)
-\dontshow{ stopifnot( identical(s1,s2) ) }
+stopifnot( identical(s1,s2) )
 
 stopCluster(cl)
 registerDoSEQ()
 
-# Works with doMPI
+# MPI cluster
 library(doMPI)
 cl <- startMPIcluster(2)
 registerDoMPI(cl)
 
-#' s1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
+s1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
 s2 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
 identical(s1, s2)
-\dontshow{ stopifnot( identical(s1,s2) ) }
+stopifnot( identical(s1,s2) )
 
 closeCluster(cl)
 registerDoSEQ()
@@ -112,14 +108,23 @@ registerDoSEQ()
 
 \dontshow{
 if( Sys.info()['user'] == 'renaud' ){
-library(doSNOW)
+# SNOW-like cluster
 cl <- makeCluster(2)
-registerDoSNOW(cl)
+registerDoParallel(cl)
 
+# standard \%dopar\% loops are _not_ reproducible
+set.seed(1234)
+s1 <- foreach(i=1:4) \%dopar\% { runif(1) }
+set.seed(1234)
+s2 <- foreach(i=1:4) \%dopar\% { runif(1) }
+identical(s1, s2)
+stopifnot( !identical(s1,s2) )
+
+# \%dorng\% loops ensure reproducibility
 s1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
 s2 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
 identical(s1, s2)
-\dontshow{ stopifnot( identical(s1,s2) ) }
+stopifnot( identical(s1,s2) )
 
 stopCluster(cl)
 registerDoSEQ()
@@ -129,29 +134,39 @@ library(doMPI)
 cl <- startMPIcluster(2)
 registerDoMPI(cl)
 
-#' s1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
+# standard \%dopar\% loops are _not_ reproducible
+set.seed(1234)
+s1 <- foreach(i=1:4) \%dopar\% { runif(1) }
+set.seed(1234)
+s2 <- foreach(i=1:4) \%dopar\% { runif(1) }
+identical(s1, s2)
+stopifnot( !identical(s1,s2) )
+
+# \%dorng\% loops ensure reproducibility
+s1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
 s2 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
 identical(s1, s2)
-\dontshow{ stopifnot( identical(s1,s2) ) }
+stopifnot( identical(s1,s2) )
 
 closeCluster(cl)
 registerDoSEQ()
 }
 }
-if( require(doMC) ){
+library(doParallel)
+cl <- makeCluster(2)
+registerDoParallel(cl)
 
-library(doMC)
-registerDoMC()
-
-# One can make existing \%dopar\% loops reproducible using registerDoRNG
+# One can make existing \%dopar\% loops reproducible using \%dorng\% loops or registerDoRNG
 r1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
 registerDoRNG(1234)
 r2 <- foreach(i=1:4) \%dopar\% { runif(1) }
 identical(r1, r2)
 \dontshow{ stopifnot( identical(r1, r2) ) }
+stopCluster(cl)
 
 # Registering another foreach backend disables doRNG
-registerDoMC()
+cl <- makeCluster(3)
+registerDoParallel(cl)
 s1 <- foreach(i=1:4) \%dopar\% { runif(1) }
 s2 <- foreach(i=1:4) \%dopar\% { runif(1) }
 identical(s1, s2)
@@ -159,31 +174,34 @@ identical(s1, s2)
 
 # doRNG is re-nabled by re-registering it
 registerDoRNG(1234)
-r2.2 <- foreach(i=1:4) \%dopar\% { runif(1) }
-identical(r2, r2.2)
-\dontshow{ stopifnot( identical(r2, r2.2) ) }
+r3 <- foreach(i=1:4) \%dopar\% { runif(1) }
+identical(r2, r3)
+# NB: the results are identical independently of the task scheduling
+# (r2 used 2 nodes, while r3 used 3 nodes)
+\dontshow{ stopifnot( identical(r2, r3) ) }
 
 # argument `once=FALSE` reseed doRNG's seed at the begining each loop
 registerDoRNG(1234, once=FALSE)
 r1 <- foreach(i=1:4) \%dopar\% { runif(1) }
 r2 <- foreach(i=1:4) \%dopar\% { runif(1) }
 identical(r1, r2)
-\dontshow{ stopifnot( identical(r1, r2) ) }
+\dontshow{ stopifnot( identical(r1, r2) && identical(r1, r3)) }
 
 # Once doRNG is registered the seed can also be passed as an option to \%dopar\%
 r1.2 <- foreach(i=1:4, .options.RNG=456) \%dopar\% { runif(1) }
 r2.2 <- foreach(i=1:4, .options.RNG=456) \%dopar\% { runif(1) }
-identical(r1.2, r2.2) && !identical(r1, r1.2)
-\dontshow{ stopifnot( identical(r1.2, r2.2) && !identical(r1, r1.2) ) }
+identical(r1.2, r2.2) && !identical(r1.2, r1)
+\dontshow{ stopifnot( identical(r1.2, r2.2) && !identical(r1.2, r1) ) }
 
-}
+stopCluster(cl)
 }
 \author{
   Renaud Gaujoux
 }
 \seealso{
-  \code{\link{foreach}}, \code{\link[doMC]{doMC}} ,
-  \code{\link[doSNOW]{registerDoSNOW}},
+  \code{\link{foreach}},
+  \code{\link[doParallel]{doParallel}} ,
+  \code{\link[doParallel]{registerDoParallel}},
   \code{\link[doMPI]{doMPI}}
 }
 

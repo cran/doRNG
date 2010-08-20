@@ -1,11 +1,6 @@
 \name{RNGseq}
 \alias{RNGseq}
 \title{Generate Sequence of Random Streams}
-\description{
-  Create a given number of seeds for L'Ecuyer's RNG, that
-  can be used to seed parallel computation, making them
-  fully reproducible.
-}
 \usage{
   RNGseq(n, seed = NULL, unlist = TRUE, verbose = FALSE)
 }
@@ -24,6 +19,11 @@
 \value{
   a list of integer vectors (or a single integer vector if
   \code{n=1} and \code{unlist=TRUE}).
+}
+\description{
+  Create a given number of seeds for L'Ecuyer's RNG, that
+  can be used to seed parallel computation, making them
+  fully reproducible.
 }
 \details{
   This ensures complete reproducibility of the set of run.

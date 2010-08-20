@@ -1,0 +1,152 @@
+% 
+\documentclass[a4paper]{article}
+\usepackage{Sweave}
+
+%\VignetteIndexEntry{Using the package doRNG}
+%\VignetteDepends{doRNG,bibtex,doParallel}
+
+
+\usepackage{a4wide}
+\usepackage{xspace}
+\usepackage[colorlinks]{hyperref} % for hyperlinks
+%\usepackage[minnames=1,maxnames=2]{biblatex}
+%\usepackage{natbib}
+%<<bib, echo=FALSE, results='asis', warning=FALSE>>=
+%cat("\\bibliography{", file.path(system.file(package='doRNG'), "REFERENCES"),
+% "}\n", sep='') 
+%@
+%\bibliography{Rpackages}
+%\newcommand{\citet}[1]{\citeauthor{#1}~\cite{#1}}
+
+% R stuff
+\let\proglang=\textit
+\let\code=\texttt 
+\newcommand{\Rcode}{\texttt}
+\newcommand{\pkgname}[1]{\textit{#1}}
+\newcommand{\Rpkg}[1]{\pkgname{#1} package\xspace}
+
+\newcommand{\graphwidth}{0.9\columnwidth}
+%\newcommand{\revision}[2][]{\textcolor{blue}{#2}{\bf \textcolor{blue}{$\blacksquare$ REV[#1]}}}
+% CRAN
+\newcommand{\CRANurl}[1]{\url{http://cran.r-project.org/package=#1}}
+\newcommand{\CRANpkg}[1]{\href{http://cran.r-project.org/package=#1}{\pkgname{#1}} package\footnote{\CRANurl{#1}}}
+\newcommand{\citeCRANpkg}[1]{\CRANpkg{#1}~\cite{#1}}
+% Bioconductor
+\newcommand{\BioCurl}[1]{\url{http://www.bioconductor.org/packages/release/bioc/html/#1.html}}
+\newcommand{\BioCpkg}[1]{\href{http://www.bioconductor.org/packages/release/bioc/html/#1.html}{\pkgname{#1}} package\footnote{\BioCurl{#1}}}
+\newcommand{\citeBioCpkg}[1]{\BioCpkg{#1}~\cite{#1}}
+% Bioconductor annotation
+\newcommand{\BioCAnnurl}[1]{\url{http://www.bioconductor.org/packages/release/data/annotation/html/#1.html}}
+\newcommand{\BioCAnnpkg}[1]{\href{http://www.bioconductor.org/packages/release/data/annotation/html/#1.html}{\Rcode{#1}} annotation package\footnote{\BioCAnnurl{#1}}}
+\newcommand{\citeBioCAnnpkg}[1]{\BioCAnnpkg{#1}~\cite{#1}}
+
+% clever references
+%\usepackage[noabbrev, capitalise, nameinlink]{cleveref}
+
+\title{Using the \code{doRNG} package\\
+{\small \Rpkg{doRNG} -- Version \Sexpr{packageVersion('doRNG')}}}
+\author{Renaud Gaujoux}
+
+\begin{document}
+
+\maketitle
+
+Research reproducibility is an issue of concern, in particular in bioinformatics \cite{Hothorn2011,Stodden2011,Ioannidis2008}.
+Some analyses require multiple independent runs to be performed, or are amenable to a split-and-reduce scheme.
+For example, some optimisation algorithms are run multiple times from different
+random starting points, and the result that achieves the least approximation error is selected.
+The \citeCRANpkg{foreach} provides a very convenient way to perform parallel computations, with different parallel environments such as MPI or Redis, using a transparent loop-like syntax:
+
+<<init, echo=FALSE, message=FALSE>>=
+options(width=90)
+@
+
+\begin{figure}[!h]
+\small
+<<foreach>>=
+# load and register parallel backend for multicore computations
+library(doParallel)
+registerDoParallel(2)
+
+# perform 5 tasks in parallel
+x <- foreach(i=1:5) %dopar% { 
+	i + runif(1) 
+}
+unlist(x)
+@
+\end{figure}
+
+For each parallel environment a \emph{backend} is implemented as a specialised \code{\%dopar\%} operator, which performs the setup and pre/post-processing specifically required by the environment (e.g. export of variable to each worker).
+The \code{foreach} function and the \code{\%dopar\%} handle the generic parameter dispatch and reducing step -- when the results are returned to the master worker.
+  
+When stochastic computations are involved, special random number generators must be used to ensure that the separate computations are indeed statistically independent -- unless otherwise wanted -- and that the loop is reproducible.
+A random number generator commonly used to achieve this is the combined
+multiple-recursive generator from L'Ecuyer \cite{Lecuyer1999}.
+This generator can generate independent random streams, from a 6-length numeric seed.
+
+The \citeCRANpkg{doRNG} provides a convenient way to implement reproducible parallel \code{foreach} loops, independently of the parallel backend used to perform the computation.
+We illustrate its use, showing how non-reproducible loops can be made
+reproducible, even when rerun with the tasks not scheduled in the same way in two separate set of runs, e.g.
+when the workers do not get to compute the same number of tasks or the number of workers is different.
+
+{\small
+<<doRNG>>=
+
+# load the doRNG package
+library(doRNG)
+
+# with standard %dopar%: loops are not reproducible
+set.seed(123)
+res <- foreach(i=1:5) %dopar% { runif(3) }
+set.seed(123)
+res2 <- foreach(i=1:5) %dopar% { runif(3) }
+identical(res, res2)
+
+# using %dorng%: reproducible
+res <- foreach(i=1:5, .options.RNG=123) %dorng% { runif(3) }
+res2 <- foreach(i=1:5, .options.RNG=123) %dorng% { runif(3) }
+identical(res, res2)
+
+# even when the tasks are not scheduled in the same way
+res <- foreach(i=1:5, .combine=rbind, .options.RNG=123) %dorng% {
+	c(pid=Sys.getpid(), val=runif(1)) 
+}
+
+cl <- makeCluster(3)
+registerDoParallel(cl)
+res2 <- foreach(i=1:5, .combine=rbind, .options.RNG=123) %dorng% { 
+	c(pid=Sys.getpid(), val=runif(1))
+}
+stopCluster(cl)
+
+# task schedule is different
+pid <- rbind(res1=res[,1], res2=res2[,1])
+storage.mode(pid) <- 'integer'
+pid
+# results are identical
+identical(res[,2], res2[,2])
+@
+%\caption{Examples of non-reproducible and reproducible loops using the
+% \Rpkg{doRNG}.}
+%\label{lst:doRNG}
+}
+
+\section*{Session information}
+{\small
+<<session_info, echo=FALSE, comment=NA>>=
+sessionInfo()
+@
+}
+
+\bibliographystyle{plain}
+<<bib, echo=FALSE, results='asis', warning=FALSE>>=
+cat("\\bibliography{Rpackages,", file.path(system.file(package='doRNG'), "REFERENCES"),
+ "}\n", sep='') 
+@
+
+<<bibtex_entries, echo=FALSE, include=FALSE>>=
+library(bibtex)
+write.bib(c('foreach', 'doRNG'), file='../Rpackages.bib')
+@
+
+\end{document}

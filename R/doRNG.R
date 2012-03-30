@@ -172,6 +172,8 @@ doRNGseed <- function(seed=NULL, normal.kind=NULL, verbose=FALSE){
 #' }
 #' 
 #' RNGseq(3, seed=1:6, verbose=TRUE)
+#' # select Normal kind
+#' RNGseq(3, seed=123, normal.kind="Ahrens")
 #' 
 RNGseq <- function(n, seed=NULL, unlist=TRUE, ...){
 	
@@ -179,14 +181,34 @@ RNGseq <- function(n, seed=NULL, unlist=TRUE, ...){
 	if( n <= 0 )
 		stop("NMF::createStream - invalid value for 'n' [positive value expected]")
 	
-	# get initial seed for the CMRG stream sequence
-	.s <- doRNGseed(seed, ...)
+	# extract RNG setting from object if possible
+	if( !is.null(attr(seed, 'rng')) ) 
+		seed <- attr(seed, 'rng')
 	
-	res <- lapply(1:n, function(i){
-		if( i == 1 ) .s
-		else .s <<- nextRNGStream(.s)				
-	})
-
+	# convert matrix into a list of seed
+	if( is.matrix(seed) )
+		seed <- lapply(seq(ncol(seed)), function(i) seed[,i])
+	
+	# if already a sequence of seeds: use directly
+	#print(seed)
+	if( is.list(seed) ){
+		# check length
+		if( length(seed) > n ){
+			warning("Reference seed sequence is longer than the required number of seed: only using the ", n, " first seeds.")
+			seed <- seed[1:n]
+		}else if( length(seed) < n )
+			stop("Reference seed sequence is shorter [",length(seed),"] than the required number of seed [", n, "].")
+		
+		res <- lapply(seed, as.integer)
+	}else{ # otherwise: get initial seed for the CMRG stream sequence
+		.s <- doRNGseed(seed, ...)
+	
+		res <- lapply(1:n, function(i){
+			if( i == 1 ) .s
+			else .s <<- nextRNGStream(.s)				
+		})
+	}
+	
 	# return list or single RNG
 	if( n==1 && unlist )
 		res[[1]]
@@ -273,7 +295,9 @@ setDoBackend <- function(backend){
 #' @param obj a foreach object as returned by a call to \code{\link{foreach}}.
 #' @param ex the \code{R} expression to evaluate.
 #' 
-#' @return \code{\%dorng\%} returns the result of the foreach loop. See \code{\link{\%dopar\%}}. 
+#' @return \code{\%dorng\%} returns the result of the foreach loop. See \code{\link{\%dopar\%}}.
+#' The whole sequence of RNG seeds is stored in the result object as an attribute.
+#' Use \code{attr(res, 'rng')} to retrieve it. 
 #' 
 #' @export 
 #' @rdname doRNG
@@ -297,6 +321,8 @@ setDoBackend <- function(backend){
 #' r1 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
 #' r2 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
 #' identical(r1, r2)
+#' # the sequence os RNG seed is stored as an attribute
+#' attr(r1, 'rng')
 #' 
 #' # sequences of %dorng% loops are reproducible
 #' set.seed(1234)
@@ -350,15 +376,30 @@ setDoBackend <- function(backend){
 	argList <- as.list(it)
 	
 	# restore current RNG  on exit if a seed is passed
+	rngSeed <- 
 	if( !is.null(obj$options$RNG) ){
+		
+		# setup current RNG restoration
 		RNG.old <- RNGscope()
 		on.exit({RNGscope(RNG.old)}, add=TRUE)
+		
+		# extract RNG setting from object if possible
+		rngSeed <- 
+		if( !is.null(attr(obj$options$RNG, 'rng')) ) attr(obj$options$RNG, 'rng')
+		else obj$options$RNG
+
+		# ensure it is a list
+		# NB: unnamed lists are sequences of seeds
+		if( !is.list(rngSeed) || is.null(names(rngSeed)) ){
+			rngSeed <- list(rngSeed)
+		}
+		rngSeed
 	}
 	
 	# generate a sequence of streams
 #	print("before RNGseq")
 #	print(head(RNGscope()))
-	obj$args$.doRNG.stream <- RNGseq(length(argList), obj$options$RNG, verbose=obj$verbose)
+	obj$args$.doRNG.stream <- do.call("RNGseq", c(list(n=length(argList), verbose=obj$verbose), rngSeed))
 #	print("after RNGseq")
 #	print(head(RNGscope()))
 	#print(obj$args$.doRNG.stream)
@@ -385,7 +426,7 @@ setDoBackend <- function(backend){
 					substitute(ex)))
 	
 	# directly register (temporarly) the computing backend
-	if( dp == 'doRNG' ){
+	if( !is.null(dp) && dp == 'doRNG' ){
 		rngBackend <- getDoBackend()
 		on.exit({setDoBackend(rngBackend)}, add=TRUE)
 		setDoBackend(rngBackend$data$backend)
@@ -393,8 +434,8 @@ setDoBackend <- function(backend){
 	
 	# call the standard %dopar% operator
 	res <- do.call('%dopar%', list(obj, ex), envir=parent.frame())
-	# add first seed as an attribute
-	attr(res, 'RNG') <- obj$args$.doRNG.stream[[1]]
+	# add seed sequence as an attribute
+	attr(res, 'rng') <- obj$args$.doRNG.stream
 	# return result
 	res
 }

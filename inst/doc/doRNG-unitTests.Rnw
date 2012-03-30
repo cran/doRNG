@@ -23,7 +23,7 @@ authors <- packageDescription(pkg)$Author
 \maketitle
 
 \begin{verbatim}
-RUNIT TEST PROTOCOL -- Thu Mar 29 16:06:15 2012 
+RUNIT TEST PROTOCOL -- Tue Apr 17 08:45:12 2012 
 *********************************************** 
 Number of test functions: 4 
 Number of errors: 0 
@@ -41,19 +41,26 @@ Test Suite: doRNG unit testing
 Test function regexp: ^test.+ 
 Test file regexp: ^runit.+.[rR]$ 
 Involved directory: 
-/tmp/tmp.5dGZ3hmkDV/doRNG/unitTests 
+/tmp/tmp.VR5hl08uKZ/doRNG/unitTests 
 --------------------------- 
-Test file: /tmp/tmp.5dGZ3hmkDV/doRNG/unitTests/runit.dorng.R 
-test.dorng: (22 checks) ... OK (6.09 seconds)
-test.doRNGseed: (41 checks) ... OK (0 seconds)
-test.registerDoRNG: (11 checks) ... OK (3.89 seconds)
-test.RNGseq: (48 checks) ... OK (0.01 seconds)
+Test file: /tmp/tmp.VR5hl08uKZ/doRNG/unitTests/runit.dorng.R 
+test.dorng: (58 checks) ... OK (4.16 seconds)
+test.doRNGseed: (54 checks) ... OK (0 seconds)
+test.registerDoRNG: (11 checks) ... OK (1.83 seconds)
+test.RNGseq: (48 checks) ... OK (0 seconds)
 \end{verbatim}
 
 \section*{Session Information}
-<<sessionInfo, echo=FALSE, results=tex>>=
-toLatex(sessionInfo())
-@
+\begin{itemize}\raggedright
+  \item R version 2.15.0 (2012-03-30), \verb|x86_64-pc-linux-gnu|
+  \item Locale: \verb|LC_CTYPE=en_ZA.UTF-8|, \verb|LC_NUMERIC=C|, \verb|LC_TIME=en_ZA.UTF-8|, \verb|LC_COLLATE=en_ZA.UTF-8|, \verb|LC_MONETARY=en_ZA.UTF-8|, \verb|LC_MESSAGES=en_US.UTF-8|, \verb|LC_PAPER=C|, \verb|LC_NAME=C|, \verb|LC_ADDRESS=C|, \verb|LC_TELEPHONE=C|, \verb|LC_MEASUREMENT=en_ZA.UTF-8|, \verb|LC_IDENTIFICATION=C|
+  \item Base packages: base, datasets, graphics, grDevices, methods,
+    parallel, stats, utils
+  \item Other packages: codetools~0.2-8, doMPI~0.1-5, doParallel~1.0.0,
+    doRNG~1.2.6, foreach~1.3.5, iterators~1.0.5, Rmpi~0.5-9,
+    RUnit~0.4.26
+  \item Loaded via a namespace (and not attached): compiler~2.15.0
+\end{itemize}
 
 \end{document}
 

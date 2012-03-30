@@ -59,6 +59,7 @@ test.RNGseq <- function(){
 	.test("n=1", 1, .list=FALSE)
 	.test("n=2", 2)
 	.test("n=5", 5)
+	
 }
 
 test.doRNGseed <- function(){
@@ -109,6 +110,11 @@ test.doRNGseed <- function(){
 	.test("seed=6-length numeric", as.numeric(1:6))
 	s <- 1:6
 	checkIdentical(doRNGseed(s)[2:7], s, "doRNGseed(6-length) sets next .Random.seed to the given value")
+	# directly set doRNG seed with a full 7-length .Random.seed
+	.test("seed=7-length integer", c(407L,1:6))
+	.test("seed=7-length numeric", as.numeric(c(107L,1:6)))
+	s <- c(407L,1:6)
+	checkIdentical(doRNGseed(s), s, "doRNGseed(7-length) sets next .Random.seed to the given value")
 	
 	# errors
 	os <- RNGscope()
@@ -122,6 +128,7 @@ test.dorng <- function(){
 		test_dopar <- function(.msg, s.seq){
 			
 			msg <- function(...) paste(.msg, ':', ...)
+			noattr <- function(x){ attributes(x) <- NULL; x}
 			
 			# standard %dopar% loops are _not_ reproducible
 			set.seed(1234)
@@ -132,14 +139,48 @@ test.dorng <- function(){
 			
 			# %dorng% loops ensure reproducibility
 			set.seed(1234)
-			s1 <- foreach(i=1:4) %dorng% { runif(1) }
+			s1.ss <- foreach(i=1:4) %dorng% { runif(1) }
+			# check RNG settings in result
+			rngs <- attr(s1.ss, 'rng')
+			checkTrue(!is.null(rngs), "Results contains RNG data")
+			checkIdentical(rngs, RNGseq(4, seed=1234), "Results contains whole sequence of RNG seeds")
+			runif(10)
 			set.seed(1234)
-			s2 <- foreach(i=1:4) %dorng% { runif(1) }
-			checkIdentical(s1, s2, msg("%dorng% loop is reproducible with set.seed"))
+			s2.ss <- foreach(i=1:4) %dorng% { runif(1) }
+			checkIdentical(s1.ss, s2.ss, msg("%dorng% loop is reproducible with set.seed"))
 			# or 
-			s1 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
-			s2 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
-			checkIdentical(s1, s2, msg("%dorng% loop is reproducible with .options.RNG"))
+			s1.opt <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
+			s2.opt <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
+			checkIdentical(s1.opt, s2.opt, msg("%dorng% loop is reproducible with .options.RNG"))
+			checkIdentical(s1.ss, s1.opt, msg("%dorng% loop with set.seed is identical to .options.RNG"))
+			
+			## check extra arguments to .options.RNG
+			# Normal RNG parameter is taken into account
+			s.unif.noNk <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(5) }
+			s.unif.wNk <- foreach(i=1:4, .options.RNG=list(1234, normal.kind="Ahrens-Dieter")) %dorng% { runif(5) }
+			checkIdentical(noattr(s.unif.noNk), noattr(s.unif.wNk), msg("%dorng% loop (runif) with normal.kind in .options.RNG is identical as without"))
+			s.norm.noNk <- foreach(i=1:4, .options.RNG=1234) %dorng% { rnorm(5) }
+			s.norm.wNk <- foreach(i=1:4, .options.RNG=list(1234, normal.kind="Ahrens-Dieter")) %dorng% { rnorm(5) }
+			checkTrue(!isTRUE(all.equal(noattr(s.norm.noNk), noattr(s.norm.wNk))), msg("%dorng% loop (rnorm) with normal.kind in .options.RNG is different as without"))			
+
+			# reproduce previous loop
+			runif(10)
+			s1 <- foreach(i=1:4) %dorng% { runif(5) }
+			s2 <- foreach(i=1:4, .options.RNG=s1) %dorng% { runif(5) }
+			checkIdentical(s1, s2, "Seeding using .options.RNG={result from other loop} give identical results")
+			# directly set sequence of seeds
+			sL <- list(c(407,1:6), c(407,11:16), c(407,21:26), c(407, 31:36))
+			s1.L <- foreach(i=1:4, .options.RNG=sL) %dorng% { runif(5) }
+			runif(10)
+			s2.L <- foreach(i=1:4, .options.RNG=sL) %dorng% { runif(5) }
+			checkIdentical(s1.L, s2.L, "Seeding using .options.RNG=list twice give identical results")
+			# directly set sequence of seeds as a matrix
+			sM <- sapply(sL, identity)
+			s1.M <- foreach(i=1:4, .options.RNG=sM) %dorng% { runif(5) }
+			runif(10)
+			s2.M <- foreach(i=1:4, .options.RNG=sM) %dorng% { runif(5) }
+			checkIdentical(s1.M, s2.M, "Seeding using .options.RNG=matrix twice give identical results")
+			checkIdentical(s1.M, s1.L, "Seeding using .options.RNG=matrix gives identical results as the same seed in list")
 			
 			# separate %dorng% loops are different
 			set.seed(1234)

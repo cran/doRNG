@@ -9,8 +9,8 @@
 #' \tabular{ll}{
 #' Package: \tab doRNG\cr
 #' Type: \tab Package\cr
-#' Version: \tab 1.0.1\cr
-#' Date: \tab 2011-10-21\cr
+#' Version: \tab 1.2.3\cr
+#' Date: \tab 2012-03-30\cr
 #' License: \tab GPL (>= 2)\cr
 #' LazyLoad: \tab yes\cr
 #' }
@@ -24,6 +24,7 @@
 #' @title Generic Reproducible Parallel Backend for foreach Loops
 #' @keywords package
 #' @seealso \code{\link{doRNG}}, \code{\link{RNGseq}}
+#' @cite Lecuyer1999
 #' @examples
 #' 
 #' # register parallel backend

@@ -69,9 +69,7 @@ authors <- packageDescription(pkg)$Author
 \\end{verbatim}
 
 \\section*{Session Information}
-<<sessionInfo, echo=FALSE, results=tex>>=
-toLatex(sessionInfo())
-@
+@sessionInfo@
 
 \\end{document}
 "
@@ -90,6 +88,8 @@ toLatex(sessionInfo())
 	contents <-	gsub("@pkg@", pkg, contents)
 	# unit test results
 	contents <-	gsub("@results@", results, contents)
+	# session info
+	contents <-	gsub("@sessionInfo@", gsub("\\", "\\\\", paste(toLatex(sessionInfo()), collapse="\n"), fixed=TRUE), contents)
 	
 	# write into the file
 	writeLines(contents, file)

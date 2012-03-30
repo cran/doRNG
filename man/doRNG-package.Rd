@@ -16,8 +16,8 @@
 }
 \details{
   \tabular{ll}{ Package: \tab doRNG\cr Type: \tab
-  Package\cr Version: \tab 1.0.1\cr Date: \tab
-  2011-10-21\cr License: \tab GPL (>= 2)\cr LazyLoad: \tab
+  Package\cr Version: \tab 1.2.3\cr Date: \tab
+  2012-03-30\cr License: \tab GPL (>= 2)\cr LazyLoad: \tab
   yes\cr }
 }
 \examples{
@@ -74,6 +74,12 @@ stopCluster(cl)
   Renaud Gaujoux \email{renaud@cbio.uct.ac.za},
 
   Maintainer: Renaud Gaujoux \email{renaud@cbio.uct.ac.za},
+}
+\references{
+  L'Ecuyer P (1999). "Good parameters and implementations
+  for combined multiple recursive random number
+  generators." _Operations Research_, *47*(1). <URL:
+  http://www.jstor.org/stable/10.2307/222902>.
 }
 \seealso{
   \code{\link{doRNG}}, \code{\link{RNGseq}}

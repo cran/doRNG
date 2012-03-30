@@ -1,4 +1,24 @@
 *************************************************************************
+*                       Changes in version 1.2.3                        *
+*************************************************************************
+
+BUG FIX
+    o fixed error when running a %dorng% loop on a fresh session, with no  
+    parallel backend registered.  
+
+CHANGES
+	o improved vignette
+	o added more unit tests
+    o changed the name of the RNG attribute on result of %dorng% looops from 
+    'RNG' to 'rng'. It now contains the whole sequence of RNG seeds, instead of 
+    only the first one.
+    o RNGseq now accepts a list or a matrix describing the whole sequence of 
+    seeds. See vignette for more details.
+    o %dorng% loops can be seeded with a complete sequence of seeds passed as a 
+    list, a matrix, or an object with attribute 'rng', e.g. the results of 
+    %dorng% loops. See vignette for more details.
+    
+*************************************************************************
 *                       Changes in version 1.2.2                        *
 *************************************************************************
 

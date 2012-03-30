@@ -1,6 +1,7 @@
 \documentclass[10pt]{article}
 %\VignetteIndexEntry{Using the package doRNG}
-%\VignetteDepends{doRNG,bibtex,doParallel,knitr,doRedis,rbenchmark}
+%\VignetteDepends{doRNG,doParallel,knitr,doRedis,rbenchmark}
+%\VignetteCompiler{knitr}
 \usepackage{url}
 \usepackage[colorlinks]{hyperref}
 

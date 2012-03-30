@@ -3,7 +3,8 @@
 \usepackage{Sweave}
 
 %\VignetteIndexEntry{Using the package doRNG}
-%\VignetteDepends{doRNG,bibtex,doParallel,knitr,doRedis,rbenchmark}
+%\VignetteDepends{doRNG,doParallel,knitr,doRedis,rbenchmark}
+%\VignetteCompiler{knitr}
 
 \ifdefined\knitrout
   \renewenvironment{knitrout}{\begin{footnotesize}}{\end{footnotesize}}
@@ -13,40 +14,28 @@
 \usepackage{a4wide}
 \usepackage{xspace}
 \usepackage[colorlinks]{hyperref} % for hyperlinks
-\usepackage[minnames=1,maxnames=2]{biblatex}
-<<bib, echo=FALSE, results='asis', warning=FALSE>>=
-cat("\\bibliography{", file.path(system.file(package='doRNG'), "REFERENCES"),
- "}\n", sep='') 
-@
-\bibliography{Rpackages}
-\newcommand{\citet}[1]{\citeauthor{#1}~\cite{#1}}
 
 \usepackage{tocloft}
 \renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}}
 \usepackage[toc]{multitoc}
 
-% R stuff
-\let\proglang=\textit
-\let\code=\texttt 
-\newcommand{\Rcode}{\texttt}
-\newcommand{\pkgname}[1]{\textit{#1}}
-\newcommand{\Rpkg}[1]{\pkgname{#1} package\xspace}
+
+% add preamble from pkgmaker
+<<pkgmaker_preamble, echo=FALSE, results='asis'>>=
+pkgmaker::latex_preamble()
+@
+
+% REFERENCES
+\usepackage[minnames=1,maxnames=2]{biblatex}
+\AtEveryCitekey{\clearfield{url}}
+<<bibliofile, echo=FALSE, results='asis'>>=
+pkgmaker::latex_bibliography('doRNG')
+@
+\bibliography{Rpackages}
+\newcommand{\citet}[1]{\citeauthor{#1}~\cite{#1}}
+%%
 
 \newcommand{\graphwidth}{0.9\columnwidth}
-%\newcommand{\revision}[2][]{\textcolor{blue}{#2}{\bf \textcolor{blue}{$\blacksquare$ REV[#1]}}}
-% CRAN
-\newcommand{\CRANurl}[1]{\url{http://cran.r-project.org/package=#1}}
-\newcommand{\pkgnameU}[1]{\href{http://cran.r-project.org/package=#1}{\pkgname{#1}}\footnote{\CRANurl{#1}}}
-\newcommand{\CRANpkg}[1]{\href{http://cran.r-project.org/package=#1}{\pkgname{#1}} package\footnote{\CRANurl{#1}}}
-\newcommand{\citeCRANpkg}[1]{\CRANpkg{#1}~\cite{#1}}
-% Bioconductor
-\newcommand{\BioCurl}[1]{\url{http://www.bioconductor.org/packages/release/bioc/html/#1.html}}
-\newcommand{\BioCpkg}[1]{\href{http://www.bioconductor.org/packages/release/bioc/html/#1.html}{\pkgname{#1}} package\footnote{\BioCurl{#1}}}
-\newcommand{\citeBioCpkg}[1]{\BioCpkg{#1}~\cite{#1}}
-% Bioconductor annotation
-\newcommand{\BioCAnnurl}[1]{\url{http://www.bioconductor.org/packages/release/data/annotation/html/#1.html}}
-\newcommand{\BioCAnnpkg}[1]{\href{http://www.bioconductor.org/packages/release/data/annotation/html/#1.html}{\Rcode{#1}} annotation package\footnote{\BioCAnnurl{#1}}}
-\newcommand{\citeBioCAnnpkg}[1]{\BioCAnnpkg{#1}~\cite{#1}}
 
 % clever references
 \usepackage[noabbrev, capitalise, nameinlink]{cleveref}
@@ -120,8 +109,8 @@ We illustrate its use, showing how non-reproducible loops can be made
 reproducible, even when tasks are not scheduled in the same way in two separate
 set of runs, e.g.
 when the workers do not get to compute the same number of tasks or the number of workers is different.
-The package has been tested with the \pkgnameU{doParallel} and \pkgnameU{doMPI}
-packages \cite{doMPI,doParallel}, but should work with other backends such as
+The package has been tested with the \CRANpkg*{doParallel} and \CRANpkg*{doMPI}
+packages \citepkg{doMPI,doParallel}, but should work with other backends such as
 provided by the \citeCRANpkg{doRedis}. 
 
 \section{The \texttt{\%dorng\%} operator}
@@ -625,15 +614,5 @@ sessionInfo()
 @
 
 \printbibliography[heading=bibintoc]
-%\bibliographystyle{plain}
-%<<bib, echo=FALSE, results='asis', warning=FALSE>>=
-%cat("\\bibliography{Rpackages,", file.path(system.file(package='doRNG'), "REFERENCES"),
-% "}\n", sep='') 
-%@
-
-<<bibtex_entries, echo=FALSE, include=FALSE>>=
-library(bibtex)
-write.bib(c('foreach', 'doRNG', 'parallel', 'doMPI', 'doParallel', 'doRedis'), file='../Rpackages.bib')
-@
 
 \end{document}

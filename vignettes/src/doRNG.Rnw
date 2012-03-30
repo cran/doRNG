@@ -359,6 +359,13 @@ cmp <- benchmark(rPar(10), rRNG(10)
 cmp[order(cmp$elapsed), ]
 @
 
+\section{Known issues}
+
+\begin{itemize}
+\item Nested and/or conditional foreach loops using the operator \code{\%:\%} are not currently not supported.
+\item An error is thrown in \code{doRNG} < 1.3, when the package \code{iterators} was not loaded, when used with 
+\code{foreach} >= 1.4.
+\end{itemize} 
 
 \section*{Cleanup}
 <<stopCluster>>=

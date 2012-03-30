@@ -299,6 +299,7 @@ setDoBackend <- function(backend){
 #' The whole sequence of RNG seeds is stored in the result object as an attribute.
 #' Use \code{attr(res, 'rng')} to retrieve it. 
 #' 
+#' @importFrom iterators iter
 #' @export 
 #' @rdname doRNG
 #' @aliases doRNG

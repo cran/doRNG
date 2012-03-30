@@ -34,7 +34,9 @@
   character string or a numeric value).
 
   \code{\%dorng\%} returns the result of the foreach loop.
-  See \code{\link{\%dopar\%}}.
+  See \code{\link{\%dopar\%}}. The whole sequence of RNG
+  seeds is stored in the result object as an attribute. Use
+  \code{attr(res, 'rng')} to retrieve it.
 }
 \description{
   \code{infoDoRNG} returns information about the doRNG
@@ -63,6 +65,8 @@ identical(s1, s2)
 r1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
 r2 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
 identical(r1, r2)
+# the sequence os RNG seed is stored as an attribute
+attr(r1, 'rng')
 
 # sequences of \%dorng\% loops are reproducible
 set.seed(1234)

@@ -50,5 +50,7 @@ stopifnot( identical(RNGseq(3), RNGseq(3, seed=123)) )
 }
 
 RNGseq(3, seed=1:6, verbose=TRUE)
+# select Normal kind
+RNGseq(3, seed=123, normal.kind="Ahrens")
 }
 

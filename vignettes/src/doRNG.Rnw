@@ -49,7 +49,9 @@ cat("\\bibliography{", file.path(system.file(package='doRNG'), "REFERENCES"),
 \newcommand{\citeBioCAnnpkg}[1]{\BioCAnnpkg{#1}~\cite{#1}}
 
 % clever references
-%\usepackage[noabbrev, capitalise, nameinlink]{cleveref}
+\usepackage[noabbrev, capitalise, nameinlink]{cleveref}
+
+\newcommand{\dorng}{\code{\%dorng\%}\xspace}
 
 \title{Using the \code{doRNG} package\\
 {\small \Rpkg{doRNG} -- Version \Sexpr{packageVersion('doRNG')}}}
@@ -167,7 +169,7 @@ attr(res, 'rng')
 Sequences of random streams for \code{"L'Ecuyer-CMRG"} are generated
 using a 6-length integer seed:
 <<nextRNGstream>>=
-nextRNGstream(1:6)
+nextRNGStream(1:6)
 @
 
 However, the \code{\%dorng\%} operator provides alternative -- convenient --
@@ -175,16 +177,27 @@ ways of seeding reproducible loops.
 
 \begin{description}
   \item[\code{set.seed}:] as shown above, calling \code{set.seed} before the
-  loop ensure reproducibility of the results, using a single integer as a seed. The actual 6-length seed is
-then classically within the call to \code{RNGkind("L'Ecuyer-CMRG")}.
-  \item[\code{.options.RNG} with single integer:] the \code{\%dorng\%} operator
-  implements an option that can be passed in the \code{foreach} statement, with
-  the same arguments accepted by \code{set.seed}:
+  loop ensure reproducibility of the results, using a single integer as a seed. 
+  The actual 6-length seed is then generated with an internal call to 
+  \code{RNGkind("L'Ecuyer-CMRG")}.
+  \item[\code{.options.RNG} with single integer:] the \dorng operator
+  support options that can be passed in the \code{foreach} statement, containing
+  arguments for the internal call to \code{set.seed}:
+  
 <<options_single>>=
 # use a single numeric as a seed
 s <- foreach(i=1:5, .options.RNG=123) %dorng% { runif(3) }
-identical(s, res)
+s2 <- foreach(i=1:5, .options.RNG=123) %dorng% { runif(3) }
+identical(s, s2)
+@
 
+\noindent \textbf{Note}: calling \code{set.seed} before the loop is equivalent 
+to passing the seed in \code{.options.RNG}. 
+See \cref{sec:set_seed} for more details.
+
+\medskip
+The kind of Normal generator may also be passed in \code{.options.RNG}:
+<<options_single_normalkind>>=
 ## Pass the Normal RNG kind to use within the loop
 # results are identical if not using the Normal kind in the loop
 optsN <- list(123, normal.kind="Ahrens")
@@ -241,6 +254,35 @@ sL <- foreach(i=1:5, .options.RNG=seedL) %dorng% { runif(3) }
 identical(sL, sM)
 @
 \end{description}
+
+\subsection{Difference between \texttt{set.seed} and \texttt{.options.RNG}}
+\label{sec:set_seed}
+
+While it is equivalent to seed \dorng loops with \code{set.seed} and \code{.options.RNG},
+it is important to note that the result depends on the current RNG kind
+\footnote{See \cref{sec:issues} about a bug in versions < 1.4 on this feature.}:
+
+<<set_seed_diff>>=
+# default RNG kind
+RNGkind('default')
+def <- foreach(i=1:5, .options.RNG=123) %dorng% { runif(3) }
+
+# Marsaglia-Multicarry
+RNGkind('Marsaglia')
+mars <- foreach(i=1:5, .options.RNG=123) %dorng% { runif(3) }
+identical(def, mars)
+
+# revert to default RNG kind
+RNGkind('default')
+@
+
+This is a ``normal'' behaviour, which is a side-effect of the expected equivalence between 
+\code{set.seed} and \code{.options.RNG}.
+This should not be a problem for reproducibility though, as R RNGs are stable across versions, 
+and loops are most of the time used with the default RNG settings. 
+In order to ensure seeding is independent from the current RNG, one has to pass a 
+7-length numeric seed to \code{.options.RNG}, which is then used directly as a value 
+for \code{.Random.seed} (see below).
 
 \section{Parallel environment independence}
 An important feature of \code{\%dorng\%} loops is that their result is
@@ -299,6 +341,10 @@ whose definition is not accessible (e.g. from other packages).
 This is achieved by registering the \code{doRNG} backend:
 
 <<registerDoRNG>>=
+
+set.seed(123)
+res <- foreach(i=1:5) %dorng% { runif(3) }
+
 registerDoRNG(123)
 res_dopar <- foreach(i=1:5) %dopar% { runif(3) }
 identical(res_dopar, res)
@@ -359,13 +405,213 @@ cmp <- benchmark(rPar(10), rRNG(10)
 cmp[order(cmp$elapsed), ]
 @
 
+
+\section{Nested and conditional loops}
+\label{sec:nested}
+
+Nested and conditional foreach loops are currently not supported and generate an error:
+
+<<nested_error>>=
+# nested loop
+foreach(i=1:10) %:% foreach(j=1:i) %dorng% { rnorm(1) }
+
+# conditional loop
+foreach(i=1:10) %:% when(i %% 2 == 0) %dorng% { rnorm(1) }
+@
+
+In this section, we propose a general work around for this kind of loops, that will 
+eventually be incorporated in the \code{\%dorng\%} operator -- when I find out how to 
+mimic its behaviour from the operator itself.
+
+\subsection{Nested loops}
+
+The idea is to create a sequence of RNG seeds before the outer loop, and use each 
+of them successively to set the RNG in the inner loop -- which is exactly what \code{\%dorng\%} does 
+for simple loops:
+
+<<nested>>=
+
+# doRNG must not be registered
+registerDoParallel(cl)
+
+# generate sequence of seeds of length the number of computations
+n <- 10; p <- 5
+rng <- RNGseq( n * p, 1234)
+
+# run standard nested foreach loop
+res <- foreach(i=1:n) %:% foreach(j=1:p, r=rng[(i-1)*p + 1:p]) %dopar% {
+    
+	# set RNG seed
+    doRNG::setRNG(r)
+	
+    # do your own computation ...
+    c(i, j, rnorm(1))
+}
+
+# Compare against the equivalent sequential computations
+k <- 1
+res2 <- foreach(i=1:n) %:% foreach(j=1:p) %do%{
+    # set seed
+    doRNG::setRNG(rng[[k]])
+	k <- k + 1
+	
+    # do your own computation ...
+	c(i, j, rnorm(1))
+}
+
+stopifnot( identical(res, res2) )
+@
+
+The following is a more complex example with unequal -- but \textbf{known \emph{a priori}} -- 
+numbers of iterations performed in the inner loops:
+
+<<nested_unequal>>=
+# generate sequence of seeds of length the number of computations
+n <- 10
+rng <- RNGseq( n * (n+1) / 2, 1234)
+
+# run standard nested foreach loop
+res <- foreach(i=1:n) %:% foreach(j=1:i, r=rng[(i-1)*i/2 + 1:i]) %dopar%{
+	
+	# set RNG seed
+	doRNG::setRNG(r)
+	
+	# do your own computation ...
+	c(i, j, rnorm(1))
+}
+
+# Compare against the equivalent sequential computations
+k <- 1
+res2 <- foreach(i=1:n) %:% foreach(j=1:i) %do%{
+	# set seed
+	doRNG::setRNG(rng[[k]])
+	k <- k + 1
+	
+	# do your own computation ...
+	c(i, j, rnorm(1))
+}
+
+stopifnot( identical(res, res2) )
+@
+
+\subsection{Conditional loops}
+The work around used for nested loops applies to conditional loops that use the \code{when()} 
+clause.
+It ensures that the RNG seed use for a given inner iteration does not depend on the 
+filter, but only on its index in the unconditional-unfolded loop:
+
+<<conditional>>=
+
+# un-conditional single loop
+resAll <- foreach(i=1:n, .options.RNG=1234) %dorng%{
+	# do your own computation ...
+	c(i, rnorm(1))
+}
+
+# generate sequence of RNG
+rng <- RNGseq(n, 1234)
+
+# conditional loop: even iterations
+resEven <- foreach(i=1:n, r=rng) %:% when(i %% 2 == 0) %dopar%{
+	
+	# set RNG seed
+	doRNG::setRNG(r)
+	
+	# do your own computation ...
+	c(i, rnorm(1))
+}
+
+# conditional loop: odd iterations
+resOdd <- foreach(i=1:n, r=rng) %:% when(i %% 2 == 1) %dopar%{
+	
+	# set RNG seed
+	doRNG::setRNG(r)
+	
+	# do your own computation ...
+	c(i, rnorm(1))
+}
+
+# conditional loop: only first 2 and last 2
+resFL <- foreach(i=1:n, r=rng) %:% when(i %in% c(1,2,n-1,n)) %dopar%{
+	
+	# set RNG seed
+	doRNG::setRNG(r)
+	
+	# do your own computation ...
+	c(i, rnorm(1))
+}
+
+# compare results
+stopifnot( identical(resAll[seq(2,n,by=2)], resEven) )
+stopifnot( identical(resAll[seq(1,n,by=2)], resOdd) )
+stopifnot( identical(resAll[c(1,2,n-1,n)], resFL) )
+
+@
+
+\subsection{Nested conditional loops}
+
+Conditional nested loops may use the same work around, as shown in this intricate 
+example:
+
+<<nested_conditional>>=
+# generate sequence of seeds of length the number of computations
+n <- 10
+rng <- RNGseq( n * (n+1) / 2, 1234)
+
+# run standard nested foreach loop
+res <- foreach(i=1:n) %:% when(i %% 2 == 0) %:% foreach(j=1:i, r=rng[(i-1)*i/2 + 1:i]) %dopar%{
+	
+	# set RNG seed
+	doRNG::setRNG(r)
+	
+	# do your own computation ...
+	c(i, j, rnorm(1))
+}
+
+# Compare against the equivalent sequential computations
+k <- 1
+resAll <- foreach(i=1:n) %:% foreach(j=1:i) %do%{
+	# set seed
+	doRNG::setRNG(rng[[k]])
+	k <- k + 1
+	
+	# do your own computation ...
+	c(i, j, rnorm(1))
+}
+
+stopifnot( identical(resAll[seq(2,n,by=2)], res) )
+@
+
 \section{Known issues}
+\label{sec:issues}
 
 \begin{itemize}
-\item Nested and/or conditional foreach loops using the operator \code{\%:\%} are not currently not supported.
-\item An error is thrown in \code{doRNG} < 1.3, when the package \code{iterators} was not loaded, when used with 
+\item Nested and/or conditional foreach loops using the operator \code{\%:\%} are not 
+currently not supported (see \cref{sec:nested} for a work around).
+\item An error is thrown in \code{doRNG} 1.2.6, when the package \code{iterators} was not loaded, when used with 
 \code{foreach} >= 1.4.
+\item There was a bug in versions prior to \code{1.4}, which caused \code{set.seed} and 
+\code{.options.RNG} not to be equivalent when the current RNG was \code{"L'Ecuyer-CMRG"}.
+This behaviour can still be reproduced by setting:
+<<doRNGversion>>=
+doRNGversion('1.3')
+@
+To revert to the latest default behaviour:
+<<doRNGversion_revert>>=
+doRNGversion(NULL)
+@
 \end{itemize} 
+
+\section{News and changes}
+
+{\scriptsize
+\begin{verbatim}
+<<news, echo=FALSE, results='asis'>>=
+cat(paste(readLines(system.file('NEWS', package='doRNG')), collapse="\n"))
+@
+\end{verbatim}
+}
+
 
 \section*{Cleanup}
 <<stopCluster>>=

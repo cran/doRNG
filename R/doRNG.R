@@ -48,11 +48,137 @@ RNGscope <- function(seed){
 	invisible(res)
 }
 
+.collapse <- function(x, n=length(x), sep=', '){
+	
+	res <- paste(if( missing(n) ) x else head(x, n), collapse=', ')
+	if( length(x) > n )
+		res <- paste(res, '...', sep=', ')
+	res
+}
+
+#' Setting the Random Seed
+#' 
+#' Directly sets the value of \code{\link{.Random.seed}} in the global 
+#' environment, and returns its old value -- invisible.
+#' 
+#' @param seed integer vector that is a suitable value for \code{.Random.seed}, or 
+#' a single numeric value passed to \code{set.seed}.
+#' @param ... extra arguments passed to \code{\link{set.seed}} if seed is a 
+#' single numeric value.   
+#' 
+#' @export
+setRNG <- function(seed, ...){
+			
+	# get/restore .Random.seed on.exit in case of errors
+	orseed <- RNGscope()
+	on.exit({
+		message("Restoring RNG settings probably due to an error in setRNG")
+		RNGscope(orseed) 
+	})
+	
+	seed <- as.integer(seed)
+	if( length(seed) == 1L ){
+		set.seed(seed, ...)
+	}else{			
+		assign('.Random.seed', seed, envir=.GlobalEnv)
+		# check validity of the seed
+		tryCatch(runif(1)
+		, error=function(err){					
+			stop("setRNG - Invalid value for .Random.seed ["
+					, .collapse(seed, n=5), "]: ", err$message, '.'
+					, call.=FALSE)
+		})
+		assign('.Random.seed', seed, envir=.GlobalEnv)			
+	}
+	
+	# cancel RNG restoration
+	on.exit()
+				
+	# return old RNG as invisible		
+	invisible(orseed)
+}
+
+#' Back Compatibility Option for doRNG
+#' 
+#' Sets the behaviour of \%dorng\% foreach loops from a
+#' given version number.
+#' 
+#' @section Behaviour changes in versions:
+#' 
+#' \describe{
+#' \item{1.4}{ The behaviour of \code{doRNGseed}, and therefore of 
+#' \code{\%dorng\%} loops, changed in the case where the current RNG was 
+#' L'Ecuyer-CMRG.
+#' Using \code{set.seed} before a non-seeded loop used not to be identical 
+#' to seeding via \code{.options.RNG}.
+#' Another bug was that non-seeded loops would share most of their RNG seed!
+#' }
+#' }
+#' 
+#' @param x version number to switch to, or missing to get the currently 
+#' active version number, or \code{NULL} to reset to the default behaviour, 
+#' i.e. of the latest version.
+#' 
+#' @return a character string
+#' If \code{x} is missing this function returns the version number from the 
+#' current behaviour.
+#' If \code{x} is specified, the function returns the old value of the 
+#' version number (invisible).
+#' 
+#' @importFrom utils packageVersion
+#' @export
+#' @examples 
+#'
+#' \dontshow{ registerDoSEQ() }
+#' 
+#' ## Seeding when current RNG is L'Ecuyer-CMRG
+#' RNGkind("L'Ecuyer")
+#' 
+#' # in version >= 1.4 seeding behaviour changed to fix a bug
+#' set.seed(123)
+#' res <- foreach(i=1:3) %dorng% runif(1)
+#' res2 <- foreach(i=1:3) %dorng% runif(1)
+#' stopifnot( !identical(attr(res, 'rng')[2:3], attr(res2, 'rng')[1:2]) )
+#' res3 <- foreach(i=1:3, .options.RNG=123) %dorng% runif(1)
+#' stopifnot( identical(res, res3) )
+#' 
+#' # buggy behaviour in version < 1.4
+#' doRNGversion("1.3")
+#' res <- foreach(i=1:3) %dorng% runif(1)
+#' res2 <- foreach(i=1:3) %dorng% runif(1)
+#' stopifnot( identical(attr(res, 'rng')[2:3], attr(res2, 'rng')[1:2]) )
+#' res3 <- foreach(i=1:3, .options.RNG=123) %dorng% runif(1)
+#' stopifnot( !identical(res, res3) )
+#' 
+#' # restore default RNG  
+#' RNGkind("default")
+#' 
+doRNGversion <- local({
+
+	currentV <- "1.4" #as.character(packageVersion('doRNG')) 
+	cache <- currentV
+	function(x){
+		if( missing(x) ) return(cache)
+		if( is.null(x) ) x <- currentV 
+		
+		# update cache and return old value
+		old <- cache
+		cache <<- x
+		invisible(old)
+	}
+})
+
+#' @importFrom utils compareVersion
+checkRNGversion <- function(x){
+	compareVersion(doRNGversion(), x)
+}
+
 #' Creating Initial Seed for Random Streams
 #' 
 #' This function generate the next random seed used to set the RNG of first 
-#' %dorng% loop iteration. The seeds for the subsequent iterations are then 
-#' obtained with the \code{\link{nextRNGStream}} function.
+#' %dorng% loop iteration. 
+#' The seeds for the subsequent iterations are then obtained with the 
+#' \code{\link{nextRNGStream}} function.
 #' 
 #' @param seed a single or 6-length numeric. If missing then the current seed is 
 #' returned.
@@ -82,15 +208,26 @@ doRNGseed <- function(seed=NULL, normal.kind=NULL, verbose=FALSE){
 		
 	# retrieve current seed
 	orng <- RNGscope()
-	on.exit(RNGscope(orng)) # setup RNG restoration in case of an error
+	# setup RNG restoration in case of an error
+	on.exit({
+		RNGscope(orng)
+		if( verbose ) message("# Current RNGkind was reset to: ", paste(RNGkind(), collapse=' - '), ' [', .collapse(orng), ']')
+	})
+
+	rkind_not_CMRG <- RNGkind()[1L] != "L'Ecuyer-CMRG"
 	
-	if( verbose ) message("# Original RNGkind is: ", paste(RNGkind(), collapse=' - '), ' [', paste(head(orng, 7), collapse=', '), ', ...]')
+	if( verbose ) message("# Original RNGkind is: ", paste(RNGkind(), collapse=' - '), ' [', .collapse(orng, 7), ']')
 	# seed with numeric seed
 	if( is.numeric(seed) ){
 		if( length(seed) == 1L ){
+			
 			if( verbose ) message("# Generate RNGstream random seed from ", seed, " ... ", appendLF=FALSE)
-			set.seed(seed)
-			RNGkind(kind="L'Ecuyer-CMRG", normal.kind=normal.kind)
+			if( checkRNGversion("1.4") < 0 || rkind_not_CMRG ){ # behaviour prior 1.4
+				set.seed(seed)
+				RNGkind(kind="L'Ecuyer-CMRG", normal.kind=normal.kind)
+			}else{ # fix seed after switching to CMRG: ensure result independence from the current RNG
+				set.seed(seed, kind="L'Ecuyer-CMRG", normal.kind=normal.kind)
+			}
 			if( verbose ) message("OK")
 		}
 		else if( length(seed) == 6L ){
@@ -109,10 +246,11 @@ doRNGseed <- function(seed=NULL, normal.kind=NULL, verbose=FALSE){
 		}else
 			stop("doRNGseed - Invalid numeric seed: should be a numeric of length 1, 6 or 7")		
 	}else if( is.null(seed) ){
-		if( RNGkind()[1] != "L'Ecuyer-CMRG" ){ # seed with random seed
+		if( rkind_not_CMRG ){ # seed with random seed
 			
 			# draw once from the current calling RNG to ensure different seeds
-			# for separate loops
+			# for separate loops, but to ensure identical results as with set.seed
+			# one must still use the current RNG before changing RNG kind
 			runif(1)
 			orng1 <- RNGscope()
 			RNGscope(orng)
@@ -121,17 +259,23 @@ doRNGseed <- function(seed=NULL, normal.kind=NULL, verbose=FALSE){
 			if( verbose ) message("# Generate random RNGstream seed: ", appendLF=FALSE)
 			RNGkind(kind="L'Ecuyer", normal.kind=normal.kind)
 			if( verbose ) message("OK")
-		}else{ # seed with next RNG stream 
-			on.exit() # cancel RNG restoration
-			s <- nextRNGStream(orng)
-			if( verbose ) message("# Use next active RNGstream seed: ", paste(s, collapse=', '))
-			RNGscope(s)
+		}else{ # seed with next RNG stream
+			if( checkRNGversion('1.4') < 0 ){
+				on.exit() # cancel RNG restoration
+				s <- nextRNGStream(orng)
+				if( verbose ) message("# Use next active RNG stream: ", .collapse(s[2:7]))
+				RNGscope(s)	
+			}else{
+				# only change normal kind if necessary and use current stream state
+				if( !is.null(normal.kind) ) RNGkind(normal.kind=normal.kind)
+				if( verbose ) message("# Use current active RNG stream: ", .collapse(RNGscope()[2:7]))
+			}
 		}
 	}else
 		stop("doRNGseed - Invalid seed value: should be a numeric or NULL")
 
 	s <- RNGscope()
-	if( verbose ) message("# RNGkind is: ", paste(RNGkind(), collapse=' - '), '[', paste(s, collapse=', '), ']')	
+	if( verbose ) message("# Seed RNGkind is: ", paste(RNGkind(), collapse=' - '), ' [', .collapse(s), ']')	
 	s	
 }
 
@@ -201,12 +345,20 @@ RNGseq <- function(n, seed=NULL, unlist=TRUE, ...){
 		
 		res <- lapply(seed, as.integer)
 	}else{ # otherwise: get initial seed for the CMRG stream sequence
+		
+		orng <- RNGscope()
 		.s <- doRNGseed(seed, ...)
 	
 		res <- lapply(1:n, function(i){
 			if( i == 1 ) .s
 			else .s <<- nextRNGStream(.s)				
 		})
+
+		# if not seeded and current RNG is L'Ecuyer-CMRG => move to stream after last stream
+		if( is.null(seed) && RNGkind()[1L] == "L'Ecuyer-CMRG" && checkRNGversion("1.4") >= 0 ){
+			# ensure old normal kind is used 
+			RNGscope(c(orng[1L], nextRNGStream(.s)[2:7]))
+		}
 	}
 	
 	# return list or single RNG
@@ -368,6 +520,9 @@ setDoBackend <- function(backend){
 #' 
 `%dorng%` <- function(obj, ex){
 	
+	# exit if nested or conditional loop
+	if( any(c('xforeach', 'filteredforeach') %in% class(obj)) )
+		stop("nested/conditional foreach loops are not supported yet.\nSee the package's vignette for a work around.")
 	
 	# if an RNG seed is provided then setup random streams 
 	# and add the list of RNGs to use as an iterated arguments for %dopar%

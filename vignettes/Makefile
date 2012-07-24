@@ -3,10 +3,10 @@
 
 ifneq (${R_HOME},)
 RSCRIPT=$(R_HOME)/bin/Rscript
-else 
-RSCRIPT=`which R`script
+else
+RSCRIPT=`echo R`script
 endif
 
-MK=$(shell $(RSCRIPT) --vanilla -e "pkgmaker::vignetteMakefile('renaud', 'doRNG')")
+MK=$(shell $(RSCRIPT) --vanilla -e "pkgmaker::vignetteMakefile('doRNG')")
 
 include $(MK)

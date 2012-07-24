@@ -1,6 +1,5 @@
 % 
 \documentclass[a4paper,12pt]{article}
-\usepackage{Sweave}
 
 %\VignetteIndexEntry{Using the package doRNG}
 %\VignetteDepends{doRNG,doParallel,knitr,doRedis,rbenchmark}
@@ -26,7 +25,7 @@ pkgmaker::latex_preamble()
 @
 
 % REFERENCES
-\usepackage[minnames=1,maxnames=2]{biblatex}
+\usepackage[minnames=1,maxnames=2,backend=bibtex]{biblatex}
 \AtEveryCitekey{\clearfield{url}}
 <<bibliofile, echo=FALSE, results='asis'>>=
 pkgmaker::latex_bibliography('doRNG')
@@ -110,7 +109,7 @@ reproducible, even when tasks are not scheduled in the same way in two separate
 set of runs, e.g.
 when the workers do not get to compute the same number of tasks or the number of workers is different.
 The package has been tested with the \CRANpkg*{doParallel} and \CRANpkg*{doMPI}
-packages \citepkg{doMPI,doParallel}, but should work with other backends such as
+packages \citepkg{Rpackage:doMPI,Rpackage:doParallel}, but should work with other backends such as
 provided by the \citeCRANpkg{doRedis}. 
 
 \section{The \texttt{\%dorng\%} operator}

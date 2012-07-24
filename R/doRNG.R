@@ -53,6 +53,7 @@ library(foreach)
 #' ## Seeding when current RNG is L'Ecuyer-CMRG
 #' RNGkind("L'Ecuyer")
 #' 
+#' doRNGversion("1.4")
 #' # in version >= 1.4 seeding behaviour changed to fix a bug
 #' set.seed(123)
 #' res <- foreach(i=1:3) %dorng% runif(1)
@@ -71,10 +72,12 @@ library(foreach)
 #' 
 #' # restore default RNG  
 #' RNGkind("default")
+#' # restore to current doRNG version
+#' doRNGversion(NULL)
 #' 
 doRNGversion <- local({
 
-	currentV <- "1.4" #as.character(packageVersion('doRNG')) 
+	currentV <- "1.5.3" #as.character(packageVersion('doRNG')) 
 	cache <- currentV
 	function(x){
 		if( missing(x) ) return(cache)
@@ -122,7 +125,7 @@ infoDoRNG <- function (data, item)
 	switch(item
 			, workers = data$backend$info(data$backend$data, "workers")
 			, name = "doRNG"
-			, version = "doRNG 1.1" 
+			, version = "doRNG 1.5.3" 
 			, NULL)
 }
 
@@ -192,7 +195,8 @@ setDoBackend <- function(backend){
 #' @examples 
 #' 
 #' library(doParallel)
-#' registerDoParallel(cores=2)
+#' cl <- makeCluster(2)
+#' registerDoParallel(cl)
 #' 
 #' # standard %dopar% loops are _not_ reproducible
 #' set.seed(1234)
@@ -207,6 +211,9 @@ setDoBackend <- function(backend){
 #' identical(r1, r2)
 #' # the sequence os RNG seed is stored as an attribute
 #' attr(r1, 'rng')
+#' 
+#' # stop cluster
+#' stopCluster(cl)
 #' 
 #' # More examples can be found in demo `doRNG`
 #' \dontrun{

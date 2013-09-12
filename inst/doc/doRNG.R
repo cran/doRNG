@@ -9,6 +9,7 @@ pkgmaker::latex_bibliography('doRNG')
 
 ## ----init, include = FALSE-----------------------------------------------
 options(width=90)
+library(pkgmaker)
 library(knitr)
 opts_chunk$set(size = "footnotesize")
 knit_hooks$set(try = pkgmaker::hook_try)
@@ -123,7 +124,6 @@ RNGkind('default')
 
 
 ## ----schedule, tidy=FALSE------------------------------------------------
-
 # define a stochastic task to perform
 task <- function() c(pid=Sys.getpid(), val=runif(1))
 
@@ -144,13 +144,15 @@ res_seq <- foreach(i=1:5, .combine=rbind) %dorng% {
 #
 
 # Using 3 workers
-cl <- makeCluster(3)
+# NB: if re-running this vignette you should edit to force using 3 here 
+cl <- makeCluster( if(isManualVignette()) 3 else 2)
+length(cl)
+# register new cluster
 registerDoParallel(cl)
 set.seed(123)
 res_3workers <- foreach(i=1:5, .combine=rbind) %dorng% { 
 	task()
 }
-
 # task schedule is different
 pid <- rbind(res1=res_seq[,1], res_2workers[,1], res2=res_3workers[,1])
 storage.mode(pid) <- 'integer'

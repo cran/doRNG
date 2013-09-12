@@ -1,4 +1,4 @@
-c8950ed46f36da5d30ab7f7b68e570d4 *DESCRIPTION
+18bcdde4bde5a91aa9112348b8b24c78 *DESCRIPTION
 1420ab061bf39e2e851179931f398a16 *NAMESPACE
 6819fa4ed7e6af2e366a045f530d1cf5 *NEWS
 b636dd9f5e5bf3044d2c4af1e359d154 *R/doRNG-package.R
@@ -8,11 +8,11 @@ b636dd9f5e5bf3044d2c4af1e359d154 *R/doRNG-package.R
 0e8ee513769d9b4c389768f847759513 *demo/doRNG.R
 f0bcd049d064a4bb995ed5fe81ea56fe *inst/REFERENCES.bib
 5ded5028d5215ffce4285d14be45bb88 *inst/doc/doRNG-unitTests.R
-d553f6ee84f202e2bb0a28d92db450a7 *inst/doc/doRNG-unitTests.Rnw
-97c872dffc0cb0aaa79517697408a5d1 *inst/doc/doRNG-unitTests.pdf
+6fd4d72bff14e4a1a943cad8fa5194b7 *inst/doc/doRNG-unitTests.Rnw
+67c4ecdadd7216dd7e4ed9e7cc8b8e0a *inst/doc/doRNG-unitTests.pdf
 96408fc5bea337091e7013439a8ad1a1 *inst/doc/doRNG.R
 ec96287c03487fac955bc8ae8a2cce8a *inst/doc/doRNG.Rnw
-4dd60ec0a388581385421a4c7289c19d *inst/doc/doRNG.pdf
+f553007ee280caaac30b5e103d34bccc *inst/doc/doRNG.pdf
 2b5efe27aaae0c885cb4cb9bd9844329 *inst/unitTests/runit.doRepro.r
 6712fdee6596eb8ee79cf62424824315 *inst/unitTests/runit.dorng.R
 a70b2a28bea1847ee2fa0eb0f0aad7de *man/doRNG-package.Rd
@@ -21,5 +21,5 @@ e74ff1e699d3eddab84fdfe9bbbec995 *man/doRNGversion.Rd
 5c2f1eb61a59847716fab167aac58a19 *man/infoDoRNG.Rd
 6f70749dbcc981ae49899a6fda9d2143 *man/registerDoRNG.Rd
 562551862c5a0a53f77d3eecac408123 *tests/doRUnit.R
-d553f6ee84f202e2bb0a28d92db450a7 *vignettes/doRNG-unitTests.Rnw
+6fd4d72bff14e4a1a943cad8fa5194b7 *vignettes/doRNG-unitTests.Rnw
 ec96287c03487fac955bc8ae8a2cce8a *vignettes/doRNG.Rnw

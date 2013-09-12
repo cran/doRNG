@@ -1,7 +1,7 @@
 Package: doRNG
 Type: Package
 Title: Generic Reproducible Parallel Backend for foreach Loops
-Version: 1.5.4
+Version: 1.5.5
 Date: 2013-09-12
 Author: Renaud Gaujoux
 Maintainer: Renaud Gaujoux <renaud@mancala.cbio.uct.ac.za>
@@ -16,12 +16,12 @@ Description: This package provides functions to perform
 License: GPL (>= 2)
 LazyLoad: yes
 VignetteBuilder: knitr
-Depends: R (>= 2.14), foreach, rngtools
-Imports: stats, iterators, pkgmaker (>= 0.17)
+Depends: R (>= 3.0.0), foreach, rngtools (>= 1.2.3)
+Imports: stats, iterators, pkgmaker (>= 0.17.4)
 Suggests: doParallel, doMPI, doRedis, rbenchmark, RUnit, devtools,
         knitr, bibtex
 Collate: 'doRNG-package.R' 'doRNG.R'
-Packaged: 2013-09-19 13:08:35 UTC; renaud
+Packaged: 2013-09-24 15:12:32 UTC; renaud
 NeedsCompilation: no
 Repository: CRAN
-Date/Publication: 2013-09-19 16:03:10
+Date/Publication: 2013-09-24 19:06:00

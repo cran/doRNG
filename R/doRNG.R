@@ -130,7 +130,7 @@ infoDoRNG <- function (data, item)
 			, NULL)
 }
 
-#' \code{doRNG} implements the generic reproducible foreach backend. It should 
+#' @describeIn infoDoRNG implements the generic reproducible foreach backend. It should 
 #' not be called directly by the user.
 #' 
 #' @param obj a foreach description of the loop arguments
@@ -138,7 +138,6 @@ infoDoRNG <- function (data, item)
 #' @param envir the loop's evaluation environment
 #' @param data configuration data of the doRNG backend
 #' 
-#' @rdname infoDoRNG
 doRNG <- function (obj, ex, envir, data){
 		
 			
@@ -163,7 +162,7 @@ doRNG <- function (obj, ex, envir, data){
     # directly register (temporarly) the computing backend
 	on.exit({setDoBackend(rngBackend)}, add=TRUE)
 	setDoBackend(rngBackend$data$backend)
-	do.call('%dorng%', list(obj, ex), envir=parent.frame())
+	do.call('%dorng%', list(obj, ex), envir = envir)
 }
 
 ##% Get/Sets the registered foreach backend's data
@@ -207,7 +206,6 @@ setDoBackend <- function(backend){
 #' 
 #' @importFrom iterators iter
 #' @export 
-#' @rdname doRNG
 #' @usage obj \%dorng\% ex
 #' @seealso \code{\link{foreach}}, \code{\link[doParallel]{doParallel}}
 #' , \code{\link[doParallel]{registerDoParallel}}, \code{\link[doMPI]{doMPI}}
@@ -243,29 +241,33 @@ setDoBackend <- function(backend){
 #' 
 #' library(doRNG)
 #' library(doParallel)
-#' registerDoParallel(cores=2)
 #' 
-#' # single %dorng% loops are reproducible
-#' r1 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
-#' r2 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
-#' identical(r1, r2)
-#' # the sequence os RNG seed is stored as an attribute
-#' attr(r1, 'rng')
+#' if( .Platform$OS.type == "unix" ){
+#'   registerDoParallel(2)
 #' 
-#' # sequences of %dorng% loops are reproducible
-#' set.seed(1234)
-#' s1 <- foreach(i=1:4) %dorng% { runif(1) }
-#' s2 <- foreach(i=1:4) %dorng% { runif(1) }
-#' # two consecutive (unseed) %dorng% loops are not identical
-#' identical(s1, s2)
+#'   # single %dorng% loops are reproducible
+#'   r1 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
+#'   r2 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }
+#'   identical(r1, r2)
+#'   # the sequence os RNG seed is stored as an attribute
+#'   attr(r1, 'rng')
+#'   
+#'   # sequences of %dorng% loops are reproducible
+#'   set.seed(1234)
+#'   s1 <- foreach(i=1:4) %dorng% { runif(1) }
+#'   s2 <- foreach(i=1:4) %dorng% { runif(1) }
+#'   # two consecutive (unseed) %dorng% loops are not identical
+#'   identical(s1, s2)
 #'
-#' # But the whole sequence of loops is reproducible
-#' set.seed(1234)
-#' s1.2 <- foreach(i=1:4) %dorng% { runif(1) }
-#' s2.2 <- foreach(i=1:4) %dorng% { runif(1) }
-#' identical(s1, s1.2) && identical(s2, s2.2)
-#' # it gives the same result as with .options.RNG
-#' identical(r1, s1) 
+#'   # But the whole sequence of loops is reproducible
+#'   set.seed(1234)
+#'   s1.2 <- foreach(i=1:4) %dorng% { runif(1) }
+#'   s2.2 <- foreach(i=1:4) %dorng% { runif(1) }
+#'   identical(s1, s1.2) && identical(s2, s2.2)
+#'   # it gives the same result as with .options.RNG
+#'   identical(r1, s1)
+#'   
+#' }
 #' 
 #' # Works with SNOW-like and MPI clusters
 #' # SNOW-like cluster

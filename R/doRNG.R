@@ -33,6 +33,14 @@
 #' to seeding via \code{.options.RNG}.
 #' Another bug was that non-seeded loops would share most of their RNG seed!
 #' }
+#' \item{1.7.4}{Prior to this version, in the case where the RNG had not been called yet, 
+#' the first seeded \code{\%dorng\%} loops would not give the identical results as 
+#' subsequent loops despite using the same seed 
+#' (see \url{https://github.com/renozao/doRNG/issues/12}).
+#' 
+#' This has been fixed in version 1.7.4, where the RNG is called once (\code{sample(NA)}), 
+#' whenever the .Random.seed is not found in global environment.
+#' }
 #' }
 #' 
 #' @param x version number to switch to, or missing to get the currently 
@@ -78,7 +86,7 @@
 #' 
 doRNGversion <- local({
 
-	currentV <- "1.5.3" #as.character(packageVersion('doRNG')) 
+	currentV <- "1.7.4" #as.character(packageVersion('doRNG')) 
 	cache <- currentV
 	function(x){
 		if( missing(x) ) return(cache)
@@ -126,7 +134,7 @@ infoDoRNG <- function (data, item)
 	switch(item
 			, workers = data$backend$info(data$backend$data, "workers")
 			, name = "doRNG"
-			, version = "doRNG 1.5.3" 
+			, version = "doRNG 1.7.3" 
 			, NULL)
 }
 
@@ -162,7 +170,7 @@ doRNG <- function (obj, ex, envir, data){
     # directly register (temporarly) the computing backend
 	on.exit({setDoBackend(rngBackend)}, add=TRUE)
 	setDoBackend(rngBackend$data$backend)
-	do.call('%dorng%', list(obj, ex), envir = envir)
+	do.call(doRNG::`%dorng%`, list(obj, ex), envir = envir)
 }
 
 ##% Get/Sets the registered foreach backend's data
@@ -204,6 +212,18 @@ setDoBackend <- function(backend){
 #' The whole sequence of RNG seeds is stored in the result object as an attribute.
 #' Use \code{attr(res, 'rng')} to retrieve it. 
 #' 
+#' @section Global options:
+#' 
+#' These options are for advanced users that develop `foreach backends:
+#' 
+#' * 'doRNG.rng_change_warning_skip': if set to a single logical `FALSE/TRUE`, it indicates 
+#' whether a warning should be thrown if the RNG seed is changed by the registered 
+#' parallel backend (default=FALSE). 
+#' Set it to `TRUE` if you know that running your backend will change the RNG state and 
+#' want to disable the warning. 
+#' This option can also be set to a character vector that specifies the name(s) of the backend(s) 
+#' for which the warning should be skipped.
+#'  
 #' @importFrom iterators iter
 #' @export 
 #' @usage obj \%dorng\% ex
@@ -310,9 +330,23 @@ setDoBackend <- function(backend){
 	# if an RNG seed is provided then setup random streams 
 	# and add the list of RNGs to use as an iterated arguments for %dopar%
 #	library(parallel)
+        N_elem <- length(as.list(iter(obj)))
 	obj$argnames <- c(obj$argnames, '.doRNG.stream')
-	it <- iter(obj)
-	argList <- as.list(it)
+	obj$args$.doRNG.stream <- rep(NA_integer_, N_elem)
+
+	# make sure the RNG seed is initialized by calling getRNG()
+	if( is.null(RNGseed()) ){
+	  if( checkRNGversion("1.7.4") >= 0 ){
+	    message("NOTE -- .Random.seed is not initialized: sampling once to ensure reproducibility.")
+	    getRNG()
+	    
+	  }else{
+	    warning(paste0(".Random.seed is not initialized: results might not be reproducible.\n  ",
+	            "Update to doRNG version >= 1.7.4 to get a fix for this issue."))
+	    
+	  }
+	}
+	##
 	
 	# restore current RNG  on exit if a seed is passed
 	rngSeed <- 
@@ -337,7 +371,7 @@ setDoBackend <- function(backend){
 	# generate a sequence of streams
 #	print("before RNGseq")
 #	showRNG()
-	obj$args$.doRNG.stream <- do.call("doRNGseq", c(list(n=length(argList), verbose=obj$verbose), rngSeed))
+	obj$args$.doRNG.stream <- do.call("doRNGseq", c(list(n=N_elem, verbose=obj$verbose), rngSeed))
 #	print("after RNGseq")
 #	showRNG()
 	#print(obj$args$.doRNG.stream)
@@ -364,10 +398,15 @@ setDoBackend <- function(backend){
         RNG.old <- RNGseed()
         on.exit({
             rng_type_changed <- !identical(RNGtype(), RNGtype(RNG.old))
-            known_changing_cases <- is.null(dp) || dp=='doSEQ' || dp=='doMPI'
-            if( known_changing_cases || rng_type_changed){
-                if( rng_type_changed && !known_changing_cases ){
-                    warning("Foreach loop had changed the current RNG type: RNG was restored to same type, next state")
+            warning_skip <- getOption("doRNG.rng_change_warning_skip", FALSE)
+            force_warning <- getOption("doRNG.rng_change_warning_force", FALSE)
+            known_changing_cases <- is.null(dp) || dp %in% c("doSEQ", "doMPI") ||
+                                     (is.logical(warning_skip) && !is.na(warning_skip) && warning_skip) ||
+                                     (is.character(warning_skip) && dp %in% warning_skip)
+            if( known_changing_cases || rng_type_changed ){
+                if( force_warning || (rng_type_changed && !known_changing_cases) ){
+                    warning(sprintf("Foreach loop (%s) had changed the current RNG type: RNG was restored to same type, next state",
+                                    dp %||% "unknown"))
                 }else{
                     message("* Detected known RNG side effect: ", dp)
                 }
@@ -391,8 +430,12 @@ setDoBackend <- function(backend){
     
 	# call the standard %dopar% operator
 	res <- do.call('%dopar%', list(obj, ex), envir=parent.frame())
-	# add seed sequence as an attribute
-	attr(res, 'rng') <- obj$args$.doRNG.stream
+	# add seed sequence as an attribute (skip this for NULL results)
+	if( !is.null(res) ){
+	  attr(res, 'rng') <- obj$args$.doRNG.stream
+	  attr(res, 'doRNG_version') <- doRNGversion()
+	  
+	}
 	# return result
 	res
 }

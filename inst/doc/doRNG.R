@@ -1,7 +1,7 @@
-## ----pkgmaker_preamble, echo=FALSE, results='asis'-----------------------
+## ----pkgmaker_preamble, echo=FALSE, results='asis'----------------------------
 pkgmaker::latex_preamble()
 
-## ----bibliofile, echo=FALSE, results='asis'------------------------------
+## ----bibliofile, echo=FALSE, results='asis'-----------------------------------
 pkgmaker::latex_bibliography('doRNG')
 
 ## ----init, include = FALSE--------------------------------------------------------------

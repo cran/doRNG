@@ -30,10 +30,20 @@ checkRNG <- function(x, y, msg = NULL, ...){
 # 1-length loop
 test_that("dorng1", {
     
+    set.seed(1234) # needed to avoid weird behaviors in checks
+    rng_seed <- RNGseq(n = 1, seed = 123, simplify = FALSE)[[1L]]
     set.seed(123)
     x <- foreach(i=1) %dorng% { runif(1) }
     y <- foreach(i=1, .options.RNG = 123) %dorng% { runif(1) }
     expect_identical(x, y)
+    # check attributes on results
+    result_attributes <- attributes(x)
+    expect_true(setequal(names(result_attributes), c("rng", "doRNG_version")),
+                info = "Result has all the expected attributes")
+    expect_identical(result_attributes[["rng"]][[1L]], rng_seed, 
+                     info = "Attribute 'rng' does not have the expected value")
+    expect_identical(result_attributes[["doRNG_version"]], doRNGversion(),
+                     info = "Attribute 'doRNG_version' does not have the expected value")
     
 })
 
@@ -88,6 +98,25 @@ test_that("dorng", {
 				expect_true(!is.null(rngs), msg("Results of seed loop contains RNG data"))
 				expect_identical(rngs, ref, msg("Results of seeded loop contains whole sequence of RNG seeds"))
 			})
+			
+			# check with unamed foreach arguments (issue #8)
+			local({
+			  on.exit( registerDoSEQ() )
+			  registerDoRNG()
+			  set.seed(567)
+			  res <- foreach(a = 1:4, .combine = 'c') %dopar% {rnorm(1, mean = 0, sd = 1)}
+			  set.seed(567)
+			  res2 <- foreach(1:4, .combine = 'c') %dopar% {rnorm(1, mean = 0, sd = 1)}
+			  expect_identical(res, res2, info = "First argument named or unamed is equivalent")
+			  #
+			  set.seed(567)
+			  res <- foreach(a = 1:4, 1:2, .combine = 'c') %dopar% {rnorm(1, mean = 0, sd = 1)}
+			  set.seed(567)
+			  res2 <- foreach(1:4, 1:2, .combine = 'c') %dopar% {rnorm(1, mean = 0, sd = 1)}
+			  expect_identical(res, res2, info = "First argument named or unamed, with second unamed argument is equivalent")
+			  
+			})
+			##
 			
 			## check extra arguments to .options.RNG
 			# Normal RNG parameter is taken into account
@@ -165,28 +194,35 @@ test_that("dorng", {
 		
 		# Multicore cluster
     if( .Platform$OS.type != 'windows'){
+      # Note: for some reason, running this test in RStudio fails when checking that the standard
+      # %dopar% loop is not reproducible
 		  registerDoParallel(cores=2)
 		  s <- test_dopar("Multicore", s.seq)
     }
 		
 		# SNOW-like cluster
 		cl <- makeCluster(2)
+		on.exit( if( !is.null(cl) ) stopCluster(cl), add = TRUE)
 		registerDoParallel(cl)
 		test_dopar("SNOW-like cluster", s.seq)
-		stopCluster(cl)
+		stopCluster(cl); cl <- NULL
 		
     skip("doMPI test because doMPI::startMPIcluster hangs inexplicably")
 		# Works with doMPI
 		if( require(doMPI) ){
-			cl <- startMPIcluster(2)
-			registerDoMPI(cl)
+			cl_mpi <- startMPIcluster(2)
+			on.exit( if( !is.null(cl_mpi) ) closeCluster(cl_mpi), add = TRUE)
+			registerDoMPI(cl_mpi)
 			test_dopar("MPI cluster", s.seq) 
-			closeCluster(cl)
+			closeCluster(cl_mpi); cl_mpi <- NULL
 		}
 })
 
 test_that("registerDoRNG", {
 	
+  orng <- RNGseed()
+	on.exit({ doRNGversion(NULL); RNGseed(orng); registerDoSEQ()} )
+		
     # RNG restoration after %dorng% over doSEQ
     registerDoSEQ()
     registerDoRNG()
@@ -199,7 +235,7 @@ test_that("registerDoRNG", {
     expect_identical(res1, res2, "%dorng% loop over doSEQ are reproducible")
     
     
-	on.exit( stopCluster(cl) )
+	on.exit( if( !is.null(cl) ) stopCluster(cl), add = TRUE)
 	library(doParallel)
 	cl <- makeCluster(2)
 	registerDoParallel(cl)
@@ -211,11 +247,12 @@ test_that("registerDoRNG", {
 	set.seed(1234)
 	r2 <- foreach(i=1:4) %dopar% { runif(1) }
 	expect_identical(r1, r2, "registerDoRNG + set.seed: makes a %dopar% loop behave like a set.seed + %dorng% loop")
-	stopCluster(cl)
+	stopCluster(cl); cl <- NULL
 	
 	# Registering another foreach backend disables doRNG
-	cl <- makeCluster(2)
-	registerDoParallel(cl)
+	cl2 <- makeCluster(2)
+	on.exit( if( !is.null(cl2) ) stopCluster(cl2), add = TRUE)
+	registerDoParallel(cl2)
 	set.seed(1234)
 	s1 <- foreach(i=1:4) %dopar% { runif(1) }
 	set.seed(1234)
@@ -276,4 +313,96 @@ test_that("registerDoRNG", {
 	expect_identical(r1.2, r2.2, "Once doRNG is registered the seed can also be passed as an option to %dopar%")
 	expect_true(!identical(r1.2, r1), "The seed passed as an option is really taken into account")
 	
+})
+
+# Test the use-case discussed in https://github.com/renozao/doRNG/issues/12
+# Note: when run under RStudio, this
+test_that("Initial RNG state is properly handled", {
+  
+  # write script that loads the package being tested
+  .run_test_script <- function(version){
+    pkg_path <- path.package("doRNG")
+    lib_path <- dirname(pkg_path)
+    # determine if the package is a development or installed package
+    if( dir.exists(file.path(pkg_path, "Meta")) ) load_cmd <- sprintf("library(doRNG, lib = '%s')", lib_path)
+    else load_cmd <- sprintf("devtools::load_all('%s')", pkg_path)
+    # results are saved in a temporary .rds file (substitute backslashes with forward slash for Windows)
+    tmp_res <- gsub("\\", "/", tempfile("rscript_res_", fileext = ".rds"), fixed = TRUE)
+    on.exit( unlink(tmp_res) )
+    
+    r_code <- paste0(collapse = "; ", 
+                    c(load_cmd,
+                    if( !is.null(version) ) sprintf("doRNGversion('%s')", version),
+                    "r1 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }",
+                    "r2 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }",
+                    "r3 <- foreach(i=1:4, .options.RNG=1234) %dorng% { runif(1) }",
+                    sprintf("saveRDS(list(r1 = r1, r2 = r2, r3 = r3), '%s')", tmp_res)
+                    )
+    )
+    
+    # run code in an independent fresh session 
+    rscript <- file.path(R.home("bin"), "Rscript")
+    system(sprintf('"%s" -e "%s"', rscript, r_code), ignore.stdout = TRUE, ignore.stderr = TRUE)
+    # load result
+    readRDS(tmp_res)
+    
+  }
+  # pre-1.7.4: results are not-reproducible
+  res <- .run_test_script("1.7.3")
+  expect_true(is.list(res) && identical(names(res), paste0("r", 1:3)))
+  expect_true(all(sapply(res, attr, 'doRNG_version') == "1.7.3"), 
+              info = "doRNG version is correctly stored")
+  expect_true(!identical(res[["r1"]], res[["r2"]]), info = "Version pre-1.7.3: results 1 & 2 are not identical")
+  expect_identical(res[["r3"]], res[["r2"]], info = "Version pre-1.7.3: results 2 & 3 are identical")
+  
+  # post-1.7.4: results are reproducible
+  res <- .run_test_script("1.7.4")
+  expect_true(is.list(res) && identical(names(res), paste0("r", 1:3)))
+  expect_true(all(sapply(res, attr, 'doRNG_version') == "1.7.4"), 
+              info = "doRNG version is correctly stored")
+  expect_identical(res[["r1"]], res[["r2"]], info = "Version 1.7.4: results 1 & 2 are identical")
+  expect_identical(res[["r3"]], res[["r2"]], info = "Version 1.7.4: results 3 & 3 are identical")
+  
+  # current version: results are reproducible
+  res <- .run_test_script(NULL)
+  expect_true(is.list(res) && identical(names(res), paste0("r", 1:3)))
+  expect_true(all(sapply(res, attr, 'doRNG_version') == doRNGversion()), 
+              info = "doRNG version is correctly stored")
+  expect_identical(res[["r1"]], res[["r2"]], info = "Current version: results 1 & 2 are identical")
+  expect_identical(res[["r3"]], res[["r2"]], info = "Current version: results 2 & 3 are identical")
+  
+})
+
+test_that("RNG warnings", {
+  
+  .local <- function(){
+    
+    orng <- RNGseed()
+    oo <- options()
+		on.exit({ options(oo); doRNGversion(NULL); RNGseed(orng); registerDoSEQ()} )
+			
+    registerDoSEQ()
+    registerDoRNG()
+    expect_warning(y <- foreach(x = 1:2) %dorng% { rnorm(1); x }, NA)
+    options(doRNG.rng_change_warning_force = TRUE)
+    expect_warning(y <- foreach(x = 1:2) %dorng% { rnorm(1); x }, 
+                   "Foreach loop \\(doSEQ\\) .* changed .* RNG type")
+    options(doRNG.rng_change_warning_force = NULL)
+    
+    on.exit( if( !is.null(cl) ) stopCluster(cl), add = TRUE)
+  	library(doParallel)
+  	cl <- makeCluster(2)
+  	registerDoParallel(cl)
+  	
+    options(doRNG.rng_change_warning_force = TRUE)
+    options(doRNG.rng_change_warning_skip = "doParallelSNOW")
+    expect_warning(y <- foreach(x = 1:2) %dorng% { rnorm(1); x },
+                  "Foreach loop \\(doParallelSNOW\\) .* changed .* RNG type")
+    options(doRNG.rng_change_warning_force = NULL)
+    expect_warning(y <- foreach(x = 1:2) %dorng% { rnorm(1); x }, NA)
+    
+    options(doRNG.rng_change_warning_skip = NULL)
+  }
+  .local()
+  
 })

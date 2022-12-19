@@ -1,4 +1,13 @@
 *************************************************************************
+Changes in version 1.8.3 by CRAN Team
+*************************************************************************
+
+Removed dependence on abandoned packae 'pkgmaker', including removing vignette.
+
+Package has been formally orphaned (it was last touched in Jan 2020
+and the 'maintainer' is unresponsive).
+
+*************************************************************************
 Changes in version 1.8
 *************************************************************************
 CHANGES

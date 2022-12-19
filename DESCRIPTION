@@ -1,7 +1,7 @@
 Package: doRNG
 Type: Package
 Title: Generic Reproducible Parallel Backend for 'foreach' Loops
-Version: 1.8.2
+Version: 1.8.3
 Encoding: UTF-8
 Authors@R: person("Renaud", "Gaujoux", email = "renozao@protonmail.com", role = c("aut", "cre"))
 Description: Provides functions to perform
@@ -14,17 +14,16 @@ Description: Provides functions to perform
     parallel environment and associated foreach backend.
 License: GPL (>= 2)
 LazyLoad: yes
-URL: https://renozao.github.io/doRNG
-BugReports: http://github.com/renozao/doRNG/issues
-VignetteBuilder: knitr
 Depends: R (>= 3.0.0), foreach, rngtools (>= 1.5)
 Imports: stats, utils, iterators
 Suggests: doParallel, doMPI, doRedis, rbenchmark, devtools, knitr,
-        bibtex, testthat, pkgmaker (>= 0.31)
+        bibtex, testthat
 RoxygenNote: 7.0.2
 NeedsCompilation: no
-Packaged: 2020-01-26 15:58:10 UTC; renaud
 Author: Renaud Gaujoux [aut, cre]
-Maintainer: Renaud Gaujoux <renozao@protonmail.com>
+Maintainer: ORPHANED
+Packaged: 2022-12-11 11:03:17 UTC; ripley
+X-CRAN-Original-Maintainer: Renaud Gaujoux <renozao@protonmail.com>
+X-CRAN-Comment: Orphaned on 2022-12-19 as maintainer is unresponsive.
 Repository: CRAN
-Date/Publication: 2020-01-27 06:30:14 UTC
+Date/Publication: 2022-12-19 07:52:21 UTC

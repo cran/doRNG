@@ -20,21 +20,21 @@
 
 #' Back Compatibility Option for doRNG
 #' 
-#' Sets the behaviour of \%dorng\% foreach loops from a
+#' Sets the behaviour of %dorng% foreach loops from a
 #' given version number.
 #' 
 #' @section Behaviour changes in versions:
 #' 
 #' \describe{
 #' \item{1.4}{ The behaviour of \code{doRNGseed}, and therefore of 
-#' \code{\%dorng\%} loops, changed in the case where the current RNG was 
+#' `%dorng%` loops, changed in the case where the current RNG was 
 #' L'Ecuyer-CMRG.
 #' Using \code{set.seed} before a non-seeded loop used not to be identical 
 #' to seeding via \code{.options.RNG}.
 #' Another bug was that non-seeded loops would share most of their RNG seed!
 #' }
 #' \item{1.7.4}{Prior to this version, in the case where the RNG had not been called yet, 
-#' the first seeded \code{\%dorng\%} loops would not give the identical results as 
+#' the first seeded `%dorng%` loops would not give the identical results as 
 #' subsequent loops despite using the same seed 
 #' (see \url{https://github.com/renozao/doRNG/issues/12}).
 #' 
@@ -186,7 +186,7 @@ getDoBackend <- function(){
 }
 setDoBackend <- function(backend){
 	ob <- getDoBackend()
-	do.call('setDoPar', backend)
+	do.call(setDoPar, backend)
 	invisible(ob)
 }
 
@@ -202,13 +202,13 @@ setDoBackend <- function(backend){
 
 #' Reproducible Parallel Foreach Backend
 #' 
-#' \code{\%dorng\%} is a foreach operator that provides an alternative operator 
-#' \code{\%dopar\%}, which enable reproducible foreach loops to be performed.
+#' `%dorng%` is a foreach operator that provides an alternative operator 
+#' `%dopar%`, which enable reproducible foreach loops to be performed.
 #' 
 #' @param obj a foreach object as returned by a call to \code{\link{foreach}}.
 #' @param ex the \code{R} expression to evaluate.
 #' 
-#' @return \code{\%dorng\%} returns the result of the foreach loop. See \code{\link{\%dopar\%}}.
+#' @return `%dorng%` returns the result of the foreach loop. See [foreach::%dopar%].
 #' The whole sequence of RNG seeds is stored in the result object as an attribute.
 #' Use \code{attr(res, 'rng')} to retrieve it. 
 #' 
@@ -371,7 +371,7 @@ setDoBackend <- function(backend){
 	# generate a sequence of streams
 #	print("before RNGseq")
 #	showRNG()
-	obj$args$.doRNG.stream <- do.call("doRNGseq", c(list(n=N_elem, verbose=obj$verbose), rngSeed))
+	obj$args$.doRNG.stream <- do.call(doRNGseq, c(list(n=N_elem, verbose=obj$verbose), rngSeed))
 #	print("after RNGseq")
 #	showRNG()
 	#print(obj$args$.doRNG.stream)
@@ -429,7 +429,7 @@ setDoBackend <- function(backend){
 					substitute(ex)))
     
 	# call the standard %dopar% operator
-	res <- do.call('%dopar%', list(obj, ex), envir=parent.frame())
+	res <- do.call(`%dopar%`, list(obj, ex), envir=parent.frame())
 	# add seed sequence as an attribute (skip this for NULL results)
 	if( !is.null(res) ){
 	  attr(res, 'rng') <- obj$args$.doRNG.stream
@@ -443,8 +443,8 @@ setDoBackend <- function(backend){
 #' Registering doRNG for Persistent Reproducible Parallel Foreach Loops   
 #' 
 #' \code{registerDoRNG} registers the doRNG foreach backend.
-#' Subsequent \%dopar\% loops are then performed using the previously 
-#' registered foreach backend, but are internally performed as \code{\link{\%dorng\%}} loops,
+#' Subsequent `%dopar%` loops are then performed using the previously 
+#' registered foreach backend, but are internally performed as [%dorng%] loops,
 #' making them fully reproducible.
 #' 
 #' Briefly, the RNG is set, before each iteration, with seeds for L'Ecuyer's CMRG 
@@ -458,7 +458,9 @@ setDoBackend <- function(backend){
 #' @param once a logical to indicate if the RNG sequence should be seeded at the 
 #' beginning of each loop or only at the first loop. 
 #' 
-#' @seealso \code{\link{\%dorng\%}}
+#' @return The value returned by [foreach::setDoPar]
+#' 
+#' @seealso [%dorng%]
 #' @export
 #' @examples 
 #' 

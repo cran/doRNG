@@ -2,7 +2,7 @@
 \documentclass[a4paper,12pt]{article}
 
 %\VignetteIndexEntry{Using the package doRNG}
-%\VignetteDepends{doRNG,doParallel,knitr,doRedis,rbenchmark}
+%\VignetteDepends{doRNG,doParallel,knitr,doRedis,rbenchmark,pkgmaker}
 %\VignetteCompiler{knitr}
 %\VignetteEngine{knitr::knitr}
 

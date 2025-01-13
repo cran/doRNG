@@ -1,4 +1,4 @@
-fc02fe29f44b58c518ec1f581cc66550 *DESCRIPTION
+6c6078c8cacdabfa73b2b48cf40e278d *DESCRIPTION
 914736c637844ee4cc539cb363543c7a *NAMESPACE
 8a66ba24ab8e03cee4fef43bf771e004 *NEWS.md
 c67a9d318dac7ce62b418bc2292e32e8 *R/doRNG-package.R
@@ -9,8 +9,8 @@ b36eab767d8fc4746b84b8e1e7b13e0a *build/vignette.rds
 3c7f2a369c28a79e7b45d8b4b0cda2d6 *demo/doRNG.R
 df50a05cd6bae38ad219a7146f68d147 *inst/REFERENCES.bib
 a64d2932a0800f4d39c4806c095876b2 *inst/doc/doRNG.R
-01e38c562116701d37c64642b42cc41f *inst/doc/doRNG.Rnw
-99a12084adb4b357cdc740b4d8568e6d *inst/doc/doRNG.pdf
+e4a549acb5bf2a06fc063a938930357f *inst/doc/doRNG.Rnw
+0eac129c32b1c0aa371cbadfa4537e53 *inst/doc/doRNG.pdf
 82ab6f44b8492bb865476203eec00e19 *man/doRNG-package.Rd
 96ef81fe164e010f76c2501714e1c1ed *man/doRNGversion.Rd
 ac2481cec965412e06b391194868845c *man/grapes-dorng-grapes.Rd
@@ -20,4 +20,4 @@ afa2c0e8da402461ed281edb4f4e20f7 *tests/testthat.R
 7978c192923a6be825d7a6d4cb9f2cea *tests/testthat/test-doRepro.r
 0bc30863de386f57746f7cdd31a24d3d *tests/testthat/test-dorng-nonattached.r
 979bef80cc9c2ac61f77720925044b42 *tests/testthat/test-dorng.r
-01e38c562116701d37c64642b42cc41f *vignettes/doRNG.Rnw
+e4a549acb5bf2a06fc063a938930357f *vignettes/doRNG.Rnw

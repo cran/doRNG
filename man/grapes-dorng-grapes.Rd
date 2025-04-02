@@ -7,7 +7,7 @@
 obj \%dorng\% ex
 }
 \arguments{
-\item{obj}{a foreach object as returned by a call to \code{\link{foreach}}.}
+\item{obj}{a foreach object as returned by a call to \code{\link[foreach]{foreach}}.}
 
 \item{ex}{the \code{R} expression to evaluate.}
 }
@@ -65,6 +65,8 @@ demo('doRNG')
 
 }
 \seealso{
-\code{\link{foreach}}, \code{\link[doParallel]{doParallel}}
-, \code{\link[doParallel]{registerDoParallel}}, \code{\link[doMPI]{doMPI}}
+  \code{\link[foreach]{foreach}},
+  \code{\link[doParallel]{doParallel}},
+  \code{\link[doParallel]{registerDoParallel}},
+  \code{\link[doMPI]{doMPI}}
 }

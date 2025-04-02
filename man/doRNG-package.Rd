@@ -71,6 +71,6 @@ L'Ecuyer P (1999). “Good Parameters and Implementations for Combined Multiple 
 0030-364X, doi:10.1287/opre.47.1.159 <https://doi.org/10.1287/opre.47.1.159>.
 }
 \seealso{
-\code{\link{doRNG}}, \code{\link{RNGseq}}
+\code{\link{doRNG}}, \code{\link[rngtools]{RNGseq}}
 }
 \keyword{package}

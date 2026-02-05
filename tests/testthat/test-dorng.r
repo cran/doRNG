@@ -186,7 +186,7 @@ test_that("dorng", {
 		orng <- RNGseed()
 		on.exit({ doRNGversion(NULL); RNGseed(orng); registerDoSEQ()} )
 		
-		library(doParallel)
+		testthat::skip_if_not_installed("doParallel")
 		
 		# Sequential computation
 		registerDoSEQ()
@@ -196,23 +196,31 @@ test_that("dorng", {
     if( .Platform$OS.type != 'windows'){
       # Note: for some reason, running this test in RStudio fails when checking that the standard
       # %dopar% loop is not reproducible
-		  registerDoParallel(cores=2)
+      doParallel::registerDoParallel(cores=2)
 		  s <- test_dopar("Multicore", s.seq)
     }
 		
 		# SNOW-like cluster
-		cl <- makeCluster(2)
-		on.exit( if( !is.null(cl) ) stopCluster(cl), add = TRUE)
-		registerDoParallel(cl)
-		test_dopar("SNOW-like cluster", s.seq)
-		stopCluster(cl); cl <- NULL
+		local({
+		  cl <- NULL
+		  on.exit({
+		    if (!is.null(cl)) parallel::stopCluster(cl)
+		  }, add = TRUE)
+		  
+		  cl <- parallel::makeCluster(2)
+		  doParallel::registerDoParallel(cl)
+		  
+		  test_dopar("SNOW-like cluster", s.seq)
+		})
 		
     skip("doMPI test because doMPI::startMPIcluster hangs inexplicably")
 		# Works with doMPI
-		if( require(doMPI) ){
-			cl_mpi <- startMPIcluster(2)
-			on.exit( if( !is.null(cl_mpi) ) closeCluster(cl_mpi), add = TRUE)
-			registerDoMPI(cl_mpi)
+    if (requireNamespace("doMPI", quietly = TRUE)) {
+      cl_mpi <- NULL
+      on.exit({ if (!is.null(cl_mpi)) closeCluster(cl_mpi) }, add = TRUE)
+      
+      cl_mpi <- doMPI::startMPIcluster(2)
+      doMPI::registerDoMPI(cl_mpi)
 			test_dopar("MPI cluster", s.seq) 
 			closeCluster(cl_mpi); cl_mpi <- NULL
 		}
@@ -235,84 +243,97 @@ test_that("registerDoRNG", {
     expect_identical(res1, res2, "%dorng% loop over doSEQ are reproducible")
     
     
-	on.exit( if( !is.null(cl) ) stopCluster(cl), add = TRUE)
-	library(doParallel)
-	cl <- makeCluster(2)
-	registerDoParallel(cl)
-	
-	# One can make existing %dopar% loops reproducible using %dorng% loops or registerDoRNG  
-	set.seed(1234)
-	r1 <- foreach(i=1:4) %dorng% { runif(1) }
-	registerDoRNG()
-	set.seed(1234)
-	r2 <- foreach(i=1:4) %dopar% { runif(1) }
-	expect_identical(r1, r2, "registerDoRNG + set.seed: makes a %dopar% loop behave like a set.seed + %dorng% loop")
-	stopCluster(cl); cl <- NULL
-	
-	# Registering another foreach backend disables doRNG
-	cl2 <- makeCluster(2)
-	on.exit( if( !is.null(cl2) ) stopCluster(cl2), add = TRUE)
-	registerDoParallel(cl2)
-	set.seed(1234)
-	s1 <- foreach(i=1:4) %dopar% { runif(1) }
-	set.seed(1234)
-	s2 <- foreach(i=1:4) %dorng% { runif(1) }
-	expect_true( !identical(s1, s2), "Registering another foreach backend disables doRNG")
-	
-	# doRNG is re-nabled by re-registering it 
-	registerDoRNG()
-	set.seed(1234)
-	r3 <- foreach(i=1:4) %dopar% { runif(1) }
-	expect_identical(r2, r3, "doRNG is re-nabled by re-registering it")
-	r4 <- foreach(i=1:4) %dopar% { runif(1) }
-	# NB: the results are identical independently of the task scheduling
-	# (r2 used 2 nodes, while r3 used 3 nodes)
-	
-	# Reproducibility of sequences of loops
-	# pass seed to registerDoRNG 
-	runif(10)
-	registerDoRNG(1234)
-	r1 <- foreach(i=1:4) %dopar% { runif(1) }
-	r2 <- foreach(i=1:4) %dopar% { runif(1) }
-	registerDoRNG(1234)
-	r3 <- foreach(i=1:4) %dopar% { runif(1) }
-	r4 <- foreach(i=1:4) %dopar% { runif(1) }
-	expect_identical(r3, r1, "registerDoRNG(1234) allow reproducing sequences of %dopar% loops (1)")
-	expect_identical(r4, r2, "registerDoRNG(1234) allow reproducing sequences of %dopar% loops (2)")	
-	# use set.seed
-	runif(10)
-	registerDoRNG()
-	set.seed(1234)
-	s1 <- foreach(i=1:4) %dopar% { runif(1) }
-	s2 <- foreach(i=1:4) %dopar% { runif(1) }
-	set.seed(1234)
-	s3 <- foreach(i=1:4) %dopar% { runif(1) }
-	s4 <- foreach(i=1:4) %dopar% { runif(1) }
-	expect_identical(s3, s1, "registerDoRNG + set.seed(1234) allow reproducing sequences of %dopar% loops (1)")
-	expect_identical(s4, s2, "registerDoRNG + set.seed(1234) allow reproducing sequences of %dopar% loops (2)")
-	
-	runif(5)
-	registerDoRNG()
-	set.seed(1234)
-	s5 <- foreach(i=1:4) %dopar% { runif(1) }
-	s6 <- foreach(i=1:4) %dopar% { runif(1) }
-	expect_identical(s5, r3, "registerDoRNG() + set.seed give same results as registerDoRNG(1234) (1)")
-	expect_identical(s6, r4, "registerDoRNG() + set.seed give same results as registerDoRNG(1234) (2)")
-	
-	# argument `once=FALSE` reseed doRNG's seed at the beginning of each loop 
-	registerDoRNG(1234, once=FALSE)
-	r1 <- foreach(i=1:4) %dopar% { runif(1) }
-	r2 <- foreach(i=1:4) %dopar% { runif(1) }
-	r3 <- foreach(i=1:4, .options.RNG=1234) %dopar% { runif(1) }
-	expect_identical(r1, r2, "argument `once=FALSE` reseed doRNG's seed at the beginning of each loop")
-	expect_identical(r1, r3, "argument `once=FALSE` reseed %dorng% loop as .options.RNG")
-	
-	# Once doRNG is registered the seed can also be passed as an option to %dopar%
-	r1.2 <- foreach(i=1:4, .options.RNG=456) %dopar% { runif(1) }
-	r2.2 <- foreach(i=1:4, .options.RNG=456) %dopar% { runif(1) }	
-	expect_identical(r1.2, r2.2, "Once doRNG is registered the seed can also be passed as an option to %dopar%")
-	expect_true(!identical(r1.2, r1), "The seed passed as an option is really taken into account")
-	
+    testthat::skip_if_not_installed("doParallel")
+    
+    cl <- NULL
+    on.exit({
+      if (!is.null(cl)) parallel::stopCluster(cl)
+    }, add = TRUE)
+    
+    cl <- parallel::makeCluster(2)
+    doParallel::registerDoParallel(cl)
+    
+    # One can make existing %dopar% loops reproducible using %dorng% loops or registerDoRNG  
+    set.seed(1234)
+    r1 <- foreach(i=1:4) %dorng% { runif(1) }
+    registerDoRNG()
+    set.seed(1234)
+    r2 <- foreach(i=1:4) %dopar% { runif(1) }
+    expect_identical(r1, r2, "registerDoRNG + set.seed: makes a %dopar% loop behave like a set.seed + %dorng% loop")
+    
+    # Registering another foreach backend disables doRNG
+    local({
+      cl2 <- NULL
+      on.exit({
+        foreach::registerDoSEQ()
+        if (!is.null(cl2)) parallel::stopCluster(cl2)
+      }, add = TRUE)
+      
+      cl2 <- parallel::makeCluster(2)
+      doParallel::registerDoParallel(cl2)
+      
+      set.seed(1234)
+      s1 <- foreach(i=1:4) %dopar% { runif(1) }
+      set.seed(1234)
+      s2 <- foreach(i=1:4) %dorng% { runif(1) }
+      expect_true(!identical(s1, s2),
+                  "Registering another foreach backend disables doRNG")
+    })
+    
+    # doRNG is re-nabled by re-registering it 
+    registerDoRNG()
+    set.seed(1234)
+    r3 <- foreach(i=1:4) %dopar% { runif(1) }
+    expect_identical(r2, r3, "doRNG is re-nabled by re-registering it")
+    r4 <- foreach(i=1:4) %dopar% { runif(1) }
+    # NB: the results are identical independently of the task scheduling
+    # (r2 used 2 nodes, while r3 used 3 nodes)
+    
+    # Reproducibility of sequences of loops
+    # pass seed to registerDoRNG 
+    runif(10)
+    registerDoRNG(1234)
+    r1 <- foreach(i=1:4) %dopar% { runif(1) }
+    r2 <- foreach(i=1:4) %dopar% { runif(1) }
+    registerDoRNG(1234)
+    r3 <- foreach(i=1:4) %dopar% { runif(1) }
+    r4 <- foreach(i=1:4) %dopar% { runif(1) }
+    expect_identical(r3, r1, "registerDoRNG(1234) allow reproducing sequences of %dopar% loops (1)")
+    expect_identical(r4, r2, "registerDoRNG(1234) allow reproducing sequences of %dopar% loops (2)")	
+    # use set.seed
+    runif(10)
+    registerDoRNG()
+    set.seed(1234)
+    s1 <- foreach(i=1:4) %dopar% { runif(1) }
+    s2 <- foreach(i=1:4) %dopar% { runif(1) }
+    set.seed(1234)
+    s3 <- foreach(i=1:4) %dopar% { runif(1) }
+    s4 <- foreach(i=1:4) %dopar% { runif(1) }
+    expect_identical(s3, s1, "registerDoRNG + set.seed(1234) allow reproducing sequences of %dopar% loops (1)")
+    expect_identical(s4, s2, "registerDoRNG + set.seed(1234) allow reproducing sequences of %dopar% loops (2)")
+    
+    runif(5)
+    registerDoRNG()
+    set.seed(1234)
+    s5 <- foreach(i=1:4) %dopar% { runif(1) }
+    s6 <- foreach(i=1:4) %dopar% { runif(1) }
+    expect_identical(s5, r3, "registerDoRNG() + set.seed give same results as registerDoRNG(1234) (1)")
+    expect_identical(s6, r4, "registerDoRNG() + set.seed give same results as registerDoRNG(1234) (2)")
+    
+    # argument `once=FALSE` reseed doRNG's seed at the beginning of each loop 
+    registerDoRNG(1234, once=FALSE)
+    r1 <- foreach(i=1:4) %dopar% { runif(1) }
+    r2 <- foreach(i=1:4) %dopar% { runif(1) }
+    r3 <- foreach(i=1:4, .options.RNG=1234) %dopar% { runif(1) }
+    expect_identical(r1, r2, "argument `once=FALSE` reseed doRNG's seed at the beginning of each loop")
+    expect_identical(r1, r3, "argument `once=FALSE` reseed %dorng% loop as .options.RNG")
+    
+    # Once doRNG is registered the seed can also be passed as an option to %dopar%
+    r1.2 <- foreach(i=1:4, .options.RNG=456) %dopar% { runif(1) }
+    r2.2 <- foreach(i=1:4, .options.RNG=456) %dopar% { runif(1) }	
+    expect_identical(r1.2, r2.2, "Once doRNG is registered the seed can also be passed as an option to %dopar%")
+    expect_true(!identical(r1.2, r1), "The seed passed as an option is really taken into account")
+    
 })
 
 # Test the use-case discussed in https://github.com/renozao/doRNG/issues/12
@@ -389,17 +410,24 @@ test_that("RNG warnings", {
                    "Foreach loop \\(doSEQ\\) .* changed .* RNG type")
     options(doRNG.rng_change_warning_force = NULL)
     
-    on.exit( if( !is.null(cl) ) stopCluster(cl), add = TRUE)
-  	library(doParallel)
-  	cl <- makeCluster(2)
-  	registerDoParallel(cl)
-  	
-    options(doRNG.rng_change_warning_force = TRUE)
-    options(doRNG.rng_change_warning_skip = "doParallelSNOW")
-    expect_warning(y <- foreach(x = 1:2) %dorng% { rnorm(1); x },
-                  "Foreach loop \\(doParallelSNOW\\) .* changed .* RNG type")
-    options(doRNG.rng_change_warning_force = NULL)
-    expect_warning(y <- foreach(x = 1:2) %dorng% { rnorm(1); x }, NA)
+    testthat::skip_if_not_installed("doParallel")
+    
+    local({
+      cl <- NULL
+      on.exit({
+        if (!is.null(cl)) parallel::stopCluster(cl)
+      }, add = TRUE)
+      
+      cl <- parallel::makeCluster(2)
+      doParallel::registerDoParallel(cl)
+      
+      options(doRNG.rng_change_warning_force = TRUE)
+      options(doRNG.rng_change_warning_skip = "doParallelSNOW")
+      expect_warning(y <- foreach(x = 1:2) %dorng% { rnorm(1); x },
+                     "Foreach loop \\(doParallelSNOW\\) .* changed .* RNG type")
+      options(doRNG.rng_change_warning_force = NULL)
+      expect_warning(y <- foreach(x = 1:2) %dorng% { rnorm(1); x }, NA)
+    })
     
     options(doRNG.rng_change_warning_skip = NULL)
   }

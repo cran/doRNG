@@ -12,61 +12,111 @@ obj \%dorng\% ex
 \item{ex}{the \code{R} expression to evaluate.}
 }
 \value{
-\verb{\%dorng\%} returns the result of the foreach loop. See \link[foreach:foreach]{foreach::\%dopar\%}.
+`%dorng%` returns the result of the foreach loop. See [foreach::%dopar%].
 The whole sequence of RNG seeds is stored in the result object as an attribute.
 Use \code{attr(res, 'rng')} to retrieve it.
 }
 \description{
-\verb{\%dorng\%} is a foreach operator that provides an alternative operator
-\verb{\%dopar\%}, which enable reproducible foreach loops to be performed.
+`%dorng%` is a foreach operator that provides an alternative operator 
+`%dopar%`, which enable reproducible foreach loops to be performed.
 }
 \section{Global options}{
 
 
 These options are for advanced users that develop `foreach backends:
-\itemize{
-\item 'doRNG.rng_change_warning_skip': if set to a single logical \code{FALSE/TRUE}, it indicates
-whether a warning should be thrown if the RNG seed is changed by the registered
-parallel backend (default=FALSE).
-Set it to \code{TRUE} if you know that running your backend will change the RNG state and
-want to disable the warning.
-This option can also be set to a character vector that specifies the name(s) of the backend(s)
+
+* 'doRNG.rng_change_warning_skip': if set to a single logical `FALSE/TRUE`, it indicates 
+whether a warning should be thrown if the RNG seed is changed by the registered 
+parallel backend (default=FALSE). 
+Set it to `TRUE` if you know that running your backend will change the RNG state and 
+want to disable the warning. 
+This option can also be set to a character vector that specifies the name(s) of the backend(s) 
 for which the warning should be skipped.
-}
 }
 
 \examples{
 
-library(doParallel)
-cl <- makeCluster(2)
-registerDoParallel(cl)
+if (requireNamespace("doParallel", quietly = TRUE)) {
+  cl <- parallel::makeCluster(2)
+  doParallel::registerDoParallel(cl)
+  on.exit(parallel::stopCluster(cl), add = TRUE)
 
-# standard \%dopar\% loops are _not_ reproducible
-set.seed(1234)
-s1 <- foreach(i=1:4) \%dopar\% { runif(1) }
-set.seed(1234)
-s2 <- foreach(i=1:4) \%dopar\% { runif(1) }
-identical(s1, s2)
+  # standard \%dopar\% loops are _not_ reproducible
+  set.seed(1234)
+  s1 <- foreach(i=1:4) \%dopar\% { runif(1) }
+  set.seed(1234)
+  s2 <- foreach(i=1:4) \%dopar\% { runif(1) }
+  identical(s1, s2)
 
-# single \%dorng\% loops are reproducible
-r1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
-r2 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
-identical(r1, r2)
-# the sequence os RNG seed is stored as an attribute
-attr(r1, 'rng')
-
-# stop cluster
-stopCluster(cl)
+  # single \%dorng\% loops are reproducible
+  r1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
+  r2 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
+  identical(r1, r2)
+  # the sequence of RNG seeds is stored as an attribute
+  attr(r1, "rng")
+} else {
+  message("Package 'doParallel' is not installed; skipping this example.")
+}
 
 # More examples can be found in demo `doRNG`
 \dontrun{
 demo('doRNG')
 }
 
+## Some features of the \%dorng\% foreach operator 
+if (requireNamespace("doParallel", quietly = TRUE)) {
+  ## Fork backend on Unix
+  if (.Platform$OS.type == "unix") {
+    doParallel::registerDoParallel(2)
+
+    r1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
+    r2 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
+    identical(r1, r2)
+    attr(r1, "rng")
+
+    set.seed(1234)
+    s1 <- foreach(i=1:4) \%dorng\% { runif(1) }
+    s2 <- foreach(i=1:4) \%dorng\% { runif(1) }
+    identical(s1, s2)
+
+    set.seed(1234)
+    s1.2 <- foreach(i=1:4) \%dorng\% { runif(1) }
+    s2.2 <- foreach(i=1:4) \%dorng\% { runif(1) }
+    identical(s1, s1.2) && identical(s2, s2.2)
+    identical(r1, s1)
+  }
+
+  ## PSOCK cluster (works everywhere)
+  cl <- parallel::makeCluster(2)
+  doParallel::registerDoParallel(cl)
+  on.exit(parallel::stopCluster(cl), add = TRUE)
+
+  s1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
+  s2 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
+  identical(s1, s2)
+
+  registerDoSEQ()
+} else {
+  message("Package 'doParallel' is not installed; skipping these examples.")
+}
+
+\dontrun{
+# MPI cluster (requires a working MPI + Rmpi setup)
+library(doMPI)
+cl <- startMPIcluster(2)
+registerDoMPI(cl)
+
+s1 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
+s2 <- foreach(i=1:4, .options.RNG=1234) \%dorng\% { runif(1) }
+identical(s1, s2)
+
+closeCluster(cl)
+registerDoSEQ()
+}
+
+
 }
 \seealso{
-  \code{\link[foreach]{foreach}},
-  \code{\link[doParallel]{doParallel}},
-  \code{\link[doParallel]{registerDoParallel}},
-  \code{\link[doMPI]{doMPI}}
+\code{\link[foreach]{foreach}}, \code{\link[doParallel]{doParallel}},
+\code{\link[doParallel]{registerDoParallel}}, \code{\link[doMPI]{doMPI}}
 }
